@@ -26,11 +26,5 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         Paginator::useBootstrap();
-        View::composer('*', function($view){
-         if(Auth::user()){
-          $staffPermissions= Auth::user()->staffPermissions->pluck('staff_permission')->toArray();
-            $view->with('staffPermissions',$staffPermissions);
-         }
-        });
     }
 }

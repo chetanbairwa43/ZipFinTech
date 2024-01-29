@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\UserReferal;
@@ -11,10 +14,14 @@ use App\Models\Bank;
 use App\Models\BankAccount;
 use App\Models\Permission;
 use App\Models\DriverProfile;
+use App\Models\VirtualAccounts;
 use App\Models\VendorProfile;
 use App\Models\VendorAvailability;
+use App\Models\AfricaVerification;
 use App\Helper\Helper;
 use App\Models\StaffPermissions;
+use App\Models\UserAddress;
+use App\Models\CardHolderDetails;
 use Validator;
 use Hash;
 use DB;
@@ -32,11 +39,17 @@ class UserController extends Controller
         $query = User::query();
         if(Auth::user()->roles->contains('5')){
             $query->where('id',Auth::user()->id);
+        } else {
+            $query->whereDoesntHave('roles', function ($q) {
+                $q->where('id', 1);
+            });
         }
 
         $keyword = $request->input('keyword', '');
         $query->where(function ($query1) use ($keyword) {
             $query1->where('name', 'like', '%'.$keyword.'%')
+            ->orWhere('fname', 'like', '%'.$keyword.'%')
+            ->orWhere('lname', 'like', '%'.$keyword.'%')
             ->orwhere('email', 'like', '%'.$keyword.'%')
             ->orwhere('phone', 'like', '%'.$keyword.'%');
         });
@@ -73,8 +86,8 @@ class UserController extends Controller
      */
     public function create()
     {
-        $data['week_arr'] = ['1' => 'Monday', '2' => 'Tuesday', '3' => 'Wednesday', '4' => 'Thursday', '5' => 'Friday', '6' => 'Saturday', '7' => 'Sunday']; 
-        $data['range'] = Helper::deliveryRange();
+        // $data['week_arr'] = ['1' => 'Monday', '2' => 'Tuesday', '3' => 'Wednesday', '4' => 'Thursday', '5' => 'Friday', '6' => 'Saturday', '7' => 'Sunday']; 
+        // $data['range'] = Helper::deliveryRange();
         $data['roles'] = Role::all()->pluck('name', 'id');
         $data['banks'] = Bank::allActiveBanks();
         $data['staffPermissonsArray']= $this->staffPermissonsArray();
@@ -91,11 +104,13 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'name' => 'nullable | string',
-            'email' => 'nullable | email',
-            'phone' => 'required | digits:10 | integer | unique:users,phone,'.$request->id,
+            'fname'        => 'nullable | string',
+            'lname'        => 'nullable | string',
+            // 'email'        => 'nullable | email',
+            // 'phone'        => 'required | integer | unique:users,phone,'.$request->id,
+            // 'bvn'          => 'required | digits:11 | integer | unique:users,bvn,'.$request->id,
             'profileImage' => 'mimes:jpeg,png,jpg',
-            'role' => 'required | array',
+            'role'         => 'required | array',
         ];
 
         if(in_array(1,$request->role) || in_array(5,$request->role)) {
@@ -103,75 +118,82 @@ class UserController extends Controller
                 $rules['password'] = [' required_if:id,NULL', 'regex:/^.*(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%]).*$/', 'string', 'min:8'];
             }
         }
-
-        if(in_array(3,$request->role)) {
-            $rules['dob'] = 'required';
-            $rules['driverAadhar'] = 'required | unique:driver_profiles,aadhar_no,'.$request->driver_id;
-            $rules['driverPanCard'] = 'required | unique:driver_profiles,pan_no,'.$request->driver_id;
-            $rules['driverVehicle'] = 'required | unique:driver_profiles,vehicle_no,'.$request->driver_id;
-            $rules['driverDrivingLicence'] = 'required | unique:driver_profiles,licence_no,'.$request->driver_id;
-            $rules['driverStatement'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['driverPanImage'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['driverLicenceFront'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['driverLicenceBack'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['driverAadharFront'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['driverAadharBack'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-        }
-
-        if(in_array(4,$request->role)) {
-            $rules['aadharNumber'] = 'required | unique:vendor_profiles,aadhar_no,'.$request->vendor_id;
-            $rules['panCardNumber'] = 'required | unique:vendor_profiles,pan_no,'.$request->vendor_id;
-            $rules['deliveryRange'] = 'required';
-            $rules['admin_commission'] = 'required';
-            $rules['bankStatement'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['panCardImage'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['aadharCardFront'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['aadharCardBack'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['storeImage'] = 'required_if:id,NULL | mimes:jpeg,png,jpg';
-            $rules['store_name'] = 'required | string';
-            $rules['store_latitude'] = 'required | string';
-            $rules['store_longitude'] = 'required | string';
-            $rules['store_location'] = 'required | string';
-            $rules['store_address'] = 'required | string';
-        }
-
         $request->validate($rules);
 
         $imagePath = config('app.profile_image');
 
         $data = [
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'password' => isset($request->password) ? Hash::make($request->password) : '',
+            'fname'         => $request->fname,
+            'lname'         => $request->lname,
+            // 'email'         => isset($request->email) ? $request->email : '',
+            // 'phone'         => isset($request->phone) ? $request->phone : '',
+            // 'dob'           => $request->dob,
+            'password'      => isset($request->password) ? Hash::make($request->password) : '',
             'profile_image' => $request->hasfile('profileImage') ? Helper::storeImage($request->file('profileImage'), $imagePath, $request->profileImageOld) : (isset($request->profileImageOld) ? $request->profileImageOld : ''),
-            'location' => $request->location,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
+            // 'bvn'           => $request->bvn,
+            'created_origin'=> 'ZIP admin',
+            // 'latitude' => $request->latitude,
+            // 'longitude' => $request->longitude,
             'referal_code' => Helper::generateReferCode(),
         ];
+        // $verifitionData =  Helper::bvnVerification($request->bvn ,$data['email'] , $request->dob , $request->fname ,  $request->lname , $request->selfie);
+        // $verifitionData =  json_decode($verifitionData,true);
 
-        if(in_array(3,$request->role)){
-            $data['is_driver'] = 1;
-            $data['is_driver_online'] = $request->driverMode ? $request->driverMode : 0;
-            $data['as_driver_verified'] = $request->driverVerify ? $request->driverVerify : 0;
-        }
-
-        if(in_array(4,$request->role)) {
-            $data['is_vendor'] = 1;
-            $data['delivery_range'] = $request->deliveryRange ? $request->deliveryRange : 0;
-            $data['is_vendor_online'] = $request->storeOpen ? $request->storeOpen : 0;
-            $data['self_delivery'] = $request->self_delivery ? $request->self_delivery : 0;
-            $data['admin_commission'] = $request->admin_commission ? $request->admin_commission : 0;
-            $data['as_vendor_verified'] = $request->vendorVerify ? $request->vendorVerify : 0;
-            $data['featured_store'] = $request->featured_store ? $request->featured_store : 0;
-        }
+        // if($verifitionData['verificationStatus'] == 'VERIFIED'){
+        //   $data->verification_image  = $request->selfie;
+        //   $data->is_africa_verifed  = $request->verificationStatus == 'VERIFIED' ? true : false ;
+        //   $data->save();
+        // }
+    
+        $users = User::where('id', $request->id)->first();
 
         if(!empty($request->password)) {
             $data['password'] = Hash::make($request->password);
         }
 
+        $kycVerification = [
+            'firstName' => $request->fname,
+            'lastName' => $request->lname,
+            'email' => $users->email,
+            'bvn' => $users->bvn
+        ];
+        // dd($kycVerification);
+        // $verifitionData =  Helper::fincraVerification(json_encode($kycVerification));
+        // $verifitionData =  json_decode($verifitionData,true);
+        // $verifitionData = $verifitionData['data']['accountNumber'];
+        // // return $verifitionData;
+        // $accountInformation = [
+        //     'accountNumber'=>$verifitionData,
+        //     'accountName' => $request->fname. $request->lname,
+        //     'bankName' => 'PROVIDUS BANK',
+        //     'reference' => 'b2a6277a-cbc9-4ab6-b1f4-46879f003cfb',
+         
+        // ];  
+
         $userData = User::updateOrCreate(['id' => $request->id,],$data);
+        // $virtualAccounts = VirtualAccounts::create([
+        //     'user_id'            => $userData->id,
+        //     'accountType'        => 'individual',
+        //     'currency'           => 'NGN',
+        //     // 'business'           => '64529bd2bfdf28e7c18aa9da',
+        //     'business'           => '645f9404bc81847c40e448a0',
+        //     'business_id'        => '653a39a673cbd51d3d521db1',
+        //     'accountNumber'      => $verifitionData,
+        //     'creation_origin'    => $request->creation_origin ?? 'ZIP admin',
+        //     'KYCInformation'     => json_encode($kycVerification),
+        //     'accountInformation' => json_encode($accountInformation),
+        // ]);
+        // // $data->json_decode->KYCInformation;
+        // // $data->json_decode->accountInformation;
+        // // $jsonCode= json_encode($data);
+        // $virtualAccounts->save();
+       
+
+        // if($verifitionData['verificationStatus'] == 'VERIFIED'){
+        //   $data->verification_image  = $request->selfie;
+        //   $data->is_africa_verifed  = $request->verificationStatus == 'VERIFIED' ? true : false ;
+        //   $data->save();
+        // }
 
         if(($userData->wasChanged('as_driver_verified')) && ($request->driverVerify)){
             $data = trans('notifications.DRIVER_ACCOUNT_APPROVE');
@@ -190,89 +212,7 @@ class UserController extends Controller
         }
 
         $user_role = $userData->roles()->sync($request->role);
-       
-        if(in_array(3,$request->role))
-        {
-            $imagePath = config('app.driver_document');
-
-            $driverData = DriverProfile::updateOrCreate(
-            [
-                'user_id' => $request->id,
-            ],
-            [
-                'user_id' => $userData->id,
-                'dob' => $request->dob,
-                'aadhar_no' => $request->driverAadhar,
-                'pan_no' => $request->driverPanCard,
-                'vehicle_no' => $request->driverVehicle,
-                'licence_no' => $request->driverDrivingLicence,
-                'bank_statement' => $request->hasfile('driverStatement') ? Helper::storeImage($request->file('driverStatement'), $imagePath, $request->driverStatementOld) : (isset($request->driverStatementOld) ? $request->driverStatementOld : ''),
-                'pan_card_image' => $request->hasfile('driverPanImage') ? Helper::storeImage($request->file('driverPanImage'), $imagePath, $request->driverPanImageOld) : (isset($request->driverPanImageOld) ? $request->driverPanImageOld : ''),
-                'licence_front_image' => $request->hasfile('driverLicenceFront') ? Helper::storeImage($request->file('driverLicenceFront'), $imagePath, $request->driverLicenceFrontOld) : (isset($request->driverLicenceFrontOld) ? $request->driverLicenceFrontOld : ''),
-                'licence_back_image' => $request->hasfile('driverLicenceBack') ? Helper::storeImage($request->file('driverLicenceBack'), $imagePath, $request->driverLicenceBackOld) : (isset($request->driverLicenceBackOld) ? $request->driverLicenceBackOld : ''),
-                'aadhar_front_image' => $request->hasfile('driverAadharFront') ? Helper::storeImage($request->file('driverAadharFront'), $imagePath, $request->driverAadharFrontOld) : (isset($request->driverAadharFrontOld) ? $request->driverAadharFrontOld : ''),
-                'aadhar_back_image' => $request->hasfile('driverAadharBack') ? Helper::storeImage($request->file('driverAadharBack'), $imagePath, $request->driverAadharBackOld) : (isset($request->driverAadharBackOld) ? $request->driverAadharBackOld : ''),
-                'status' => $request->driverVerify ? $request->driverVerify : 0,
-            ]);
-        }
-
-        if(in_array(4,$request->role))
-        {
-            $imagePath = config('app.vendor_document');
-
-            $vendorData = VendorProfile::updateOrCreate(
-            [
-                'user_id' => $request->id,
-            ],
-            [
-                'user_id' => $userData->id,
-                'aadhar_no' => $request->aadharNumber,
-                'pan_no' => $request->panCardNumber,
-                'store_name' => $request->store_name,
-                'location' => $request->store_location,
-                'address' => $request->store_address,
-                'lat' => $request->store_latitude,
-                'long' => $request->store_longitude,
-                'store_image' => $request->hasfile('storeImage') ? Helper::storeImage($request->file('storeImage'), $imagePath, $request->storeImageOld) : (isset($request->storeImageOld) ? $request->storeImageOld : ''),
-                'bank_statement' => $request->hasfile('bankStatement') ? Helper::storeImage($request->file('bankStatement'), $imagePath, $request->bankStatementOld) : (isset($request->bankStatementOld) ? $request->bankStatementOld : ''),
-                'pan_card_image' => $request->hasfile('panCardImage') ? Helper::storeImage($request->file('panCardImage'), $imagePath, $request->panCardImageOld) : (isset($request->panCardImageOld) ? $request->panCardImageOld : ''),
-                'aadhar_front_image' => $request->hasfile('aadharCardFront') ? Helper::storeImage($request->file('aadharCardFront'), $imagePath, $request->aadharCardFrontOld) : (isset($request->aadharCardFrontOld) ? $request->aadharCardFrontOld : ''),
-                'aadhar_back_image' => $request->hasfile('aadharCardBack') ? Helper::storeImage($request->file('aadharCardBack'), $imagePath, $request->aadharCardBackOld) : (isset($request->aadharCardBackOld) ? $request->aadharCardBackOld : ''),
-                'status' => $request->vendorVerify ? $request->vendorVerify : 0,
-            ]);
-
-            $data = array();
-            
-            for ($i=1; $i <= 7; $i++) { 
-                $data[] = [
-                    'week_day' => $i, 
-                    'start_time' => !empty($request->start_time[$i]) ? $request->start_time[$i] : '09:00', 
-                    'end_time' => !empty($request->end_time[$i]) ? $request->end_time[$i] : '17:00',
-                    'status' => isset($request->weekday[$i]) ? $request->weekday[$i] : 0,
-                ]
-                + (!empty($request->id) ? ['user_id' => $request->id] : ['user_id' => $userData->id])
-                + (!empty($request->vendor_available_id) ? ['id' => $request->vendor_available_id[$i-1]] : []);
-            }
-
-            VendorAvailability::upsert($data, ['id','user_id','week_day'],['start_time','end_time','status']);
-        }
-
-        if(in_array(3,$request->role) || in_array(4,$request->role)) {
-            if((isset($request->bank)) && (isset($request->account_name)) && (isset($request->account_no)) && (isset($request->ifsc_code))) {
-                $bankAccount = BankAccount::updateOrCreate(
-                [
-                    'id' => $request->bank_account_id,
-                ],
-                [
-                    'bank_id' => $request->bank,
-                    'user_id' => isset($request->id) ? $request->id : $userData->id,
-                    'account_name' => $request->account_name,
-                    'account_no' => $request->account_no,
-                    'ifsc_code' => $request->ifsc_code,
-                ]);
-            }
-        }
-
+    
         if(in_array(5,$request->role)){
            /**Store staff permissions */
             if($request->staff_permissions){
@@ -302,11 +242,10 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $data['data'] = User::where('id',$id)->with('driver','vendor','vendor_availability')->first();
-        if(!$data['data']) {
-            return redirect()->back()->with('error', 'Invalid User');
-        }
-        $data['week_arr'] = ['1' => 'Monday', '2' => 'Tuesday', '3' => 'Wednesday', '4' => 'Thursday', '5' => 'Friday', '6' => 'Saturday', '7' => 'Sunday']; 
+        $data['data'] = User::where('id',$id)->first();
+        $data['virtual'] = VirtualAccounts::where('user_id',$id)->first();
+        $data['fincraUser'] = AfricaVerification::where('user_id',$id)->first();   
+        $data['address'] = UserAddress::where('user_id',$id)->first();
         return view('admin.user.show',$data);
     }
 
@@ -318,18 +257,20 @@ class UserController extends Controller
      */
     public function edit($id)
     {
-        $data['data'] = User::where('id',$id)->with('driver','vendor','vendor_availability')->first();
-        if(!$data['data']) {
-            return redirect()->back()->with('error', 'Invalid User');
-        }
-        $data['range'] = Helper::deliveryRange();
+        $data['data'] = User::where('id',$id)->first();
+        $data['virtualAccount'] = json_decode(VirtualAccounts::where('user_id',$id)->first(),true);
+        // $data['africaUser'] = AfricaVerification::where('user_id',$id)->first();
+        // if(!$data['data']) {
+        //     return redirect()->back()->with('error', 'Invalid User');
+        // }
+        // $data['range'] = Helper::deliveryRange();
         $data['roles'] = Role::all()->pluck('name', 'id');
-        $data['data']->load('roles');
+        // $data['data']->load('roles');
         $data['banks'] = Bank::allActiveBanks();
-        $data['data']->staffPermissions;
-        $data['staffPermissionsData'] = $data['data']->staffPermissions->pluck('staff_permission')->toArray();
-        $data['week_arr'] = ['1' => 'Monday', '2' => 'Tuesday', '3' => 'Wednesday', '4' => 'Thursday', '5' => 'Friday', '6' => 'Saturday', '7' => 'Sunday']; 
-        $data['staffPermissonsArray']= $this->staffPermissonsArray();
+        // $data['data']->staffPermissions;
+        // $data['staffPermissionsData'] = $data['data']->staffPermissions->pluck('staff_permission')->toArray();
+        // $data['week_arr'] = ['1' => 'Monday', '2' => 'Tuesday', '3' => 'Wednesday', '4' => 'Thursday', '5' => 'Friday', '6' => 'Saturday', '7' => 'Sunday']; 
+        // $data['staffPermissonsArray']= $this->staffPermissonsArray();
 
         return view('admin.user.create',$data);
     }
@@ -356,6 +297,8 @@ class UserController extends Controller
     {
         try {
             $data= User::where('id',$id)->delete();
+            $cardData= CardHolderDetails::where('user_id',$id)->delete();
+            $virtualAccount= VirtualAccounts::where('user_id',$id)->delete();
             // $user_role = DB::table('role_user')->where('user_id',$id)->delete();
             if($data) {
                 return response()->json(["success" => true]);
@@ -447,4 +390,62 @@ class UserController extends Controller
 
         return view('admin.user.user-referal', $data);
     }
+    public function fincraUser(Request $request){
+        $query = VirtualAccounts::query();
+
+        if (isset($request->keyword)) {
+            $query->whereHas('users', function ($uname) use ($request) {
+                $uname->where('fname', 'LIKE', '%' . $request->keyword . '%')
+                ->orWhere('lname', 'LIKE', '%' . $request->keyword . '%');
+            });
+        }
+        if($request->date_search){
+            $data['date_search'] = $request->date_search;
+
+            $query->wheredate('virtual_accounts.created_at', $data['date_search']);
+        }
+            if(isset($request->card_type)){
+            $query->where('card_type', $request->card_type);
+        }
+            if(isset($request->creation_origin)){
+            $query->where('creation_origin', $request->creation_origin);
+        }
+        if (isset($request->type)) {
+            $query->where('transaction_type',$request->type);
+        }
+        $d['verifitionData'] =  Helper::fincraUsers();
+        $d['verifitionData'] =  json_decode($d['verifitionData'],true);
+
+        $d['usersNotFound'] = [];
+        foreach($d['verifitionData']['data']['results'] as $key => $value) {
+            $fincrauserEmail = (isset($value['KYCInformation']['email']) ? $value['KYCInformation']['email'] : '');
+            $usersFound = User::where('email', $fincrauserEmail)->first(); 
+            if(!$usersFound){
+                $d['usersNotFound'][] = $value;
+            }
+        }
+        $d['FincrausersNotFound'] = [];
+        foreach($d['verifitionData']['data']['results'] as $key => $values) {
+            $fincrauserEmails = (isset($values['KYCInformation']['email']) ? $values['KYCInformation']['email'] : '');
+            $usersEmailFound = User::where('email',$fincrauserEmail)->get(); 
+            if($usersEmailFound !=$fincrauserEmails){
+            $d['FincrausersNotFound'] = $usersEmailFound;
+            }
+        }
+      
+        $item = isset($request->items) ? $request->items : 10;
+        $d['data'] = $query->latest()->paginate($item);
+        return view('admin.user.user-audit', $d);
+    }
+    public function getBeneficiariesApiData(Request $request){
+        // $requestData = '64529bd2bfdf28e7c18aa9da';
+        $requestData = '645f9404bc81847c40e448a0';
+        $beneficiaries = Helper::fincrabeneficiaries($requestData,1,$request->items);
+        $collection = json_decode($beneficiaries, true);
+        $collection = $collection['data']['results'];
+        $d['beneficiaries'] = $collection;
+   
+        return view('admin.user.fincra-beneficiaries', $d);
+    }
+    
 }

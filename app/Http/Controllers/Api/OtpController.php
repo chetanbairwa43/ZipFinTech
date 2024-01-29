@@ -145,4 +145,78 @@ class OtpController extends Controller
         }
     }
 
+    public function testRout(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'vehical_no' => 'required',
+        ]);
+        if ($validator->fails()) {
+            $er=[];$i=0;
+             foreach($validator->errors() as $err){
+                $er[$i++]=$err[0]; 
+                return $err;
+             }
+            return response()->json(['Status'=>'Failure','Description'=>'please enter vehical no.','Errors'=>'data not found','Results'=>null],403);
+        }
+
+    	// if(!isset($request->vehical_no) && empty($request['vehical_no'])){
+    		
+    	// 	return response()->json(['Status'=>'Failure','Description'=>'please enter vehical no.','Errors'=>'data not found','Vehicle'=>[]]);
+    	// }
+
+    	// $vehical_no =str_replace(" ",'', trim($request->vehical_no));
+
+    	// $url = "https://externalapipreview.etelimited.co.uk/api/vehicle/makes";
+
+    	// $url = "https://externalapi.etelimited.co.uk/api/vehicle/details/".$vehical_no;
+
+		//  $result = $this->apiCurl($url);
+		// new api for vehical verify
+		$curl = curl_init();
+		
+		curl_setopt_array($curl, array(
+		  CURLOPT_URL => 'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles',
+		  CURLOPT_RETURNTRANSFER => true,
+		  CURLOPT_ENCODING => '',
+		  CURLOPT_MAXREDIRS => 10,
+		  CURLOPT_TIMEOUT => 0,
+		  CURLOPT_FOLLOWLOCATION => true,
+		  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+		  CURLOPT_CUSTOMREQUEST => 'POST',
+		  CURLOPT_POSTFIELDS => json_encode([
+			'registrationNumber' => $request->vehical_no,
+		]),
+		  CURLOPT_HTTPHEADER => array(
+			'Accept: /',
+			'Content-Type: application/json',
+			'x-api-key: SNQZ4KOSo688BdxfjUK8C3YymyxIb6A29v3UZwWg'
+		  ),
+		));
+		
+		$response = curl_exec($curl);
+		
+		curl_close($curl);
+		$result = json_decode($response,true);
+		//    dd($result['errors'][0]['status']);
+		 if(isset($result['errors'][0]['status']) && $result['errors'][0]['status'] == "400"){
+               return response()->json(['Status'=>"Failure",'Description'=>'Please try again , server not connected','Errors'=>'data not found','Results'=>[]],200);
+         }
+
+         if(isset($result['make'])){
+
+			$newresult['Model'] = '_';
+			$newresult['Make'] = $result['make'];
+			$r = $newresult;
+
+			return response()->json(['Status'=>'Success','Description'=>'OK','Errors'=>"",'Results'=>$r]);
+
+		}
+
+		else{
+
+		return response()->json(['Status'=>'Failure','Description'=>'The vehicle could not be converted.','Errors'=>'This ('.$request->vehical_no.") vehicle no. doesn't exist",'Results'=>null],200);
+
+		}
+
+    }
+
 }

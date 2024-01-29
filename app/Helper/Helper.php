@@ -10,15 +10,16 @@ use App\Models\CartDetail;
 use App\Models\Coupon;
 use App\Models\WalletTransaction;
 use App\Models\CouponInventory;
+use App\Models\Setting;
+use Carbon\Carbon;
 use File;
 use App\Models\Notification;
 class Helper
 {
-    public static function fireBasePushNotification($notification)
+    public static function fireBasePushNotification($user_id, $notification_title, $notification_body)
     {
-        try { 
-            $getNotification = Notification::getNotificationById($notification->id);
-            $getToken = User::getUserById($getNotification->user_id);
+        try {
+            $getToken = User::getUserById($user_id);
             
             $firebaseToken[]= $getToken->device_token;
           
@@ -28,8 +29,8 @@ class Helper
             $data = [
                 "registration_ids" => $firebaseToken,
                 "notification" => [
-                    "title" => $getNotification->title,
-                    "body"  => $getNotification->body,
+                    "title" => $notification_title,
+                    "body"  => strip_tags($notification_body),
                 ]
             ];
       
@@ -73,6 +74,21 @@ class Helper
             return false;
         }
       
+    }
+    public static function bvnVerification($bvnNo , $email = null, $dob , $fname, $lname, $imageData){
+
+        $client = new \GuzzleHttp\Client();
+        $response = $client->request('POST', 'https://api.verified.africa/sfx-verify/v3/id-service/', [
+        'body' => '{"searchParameter":"'.$bvnNo.'","verificationType":"BVN-FACE-MATCH-LIVENESS-VERIFICATION","dob":"'.$dob.'","firstName":"'.$fname.'","lastName":"'.$lname.'","selfieToDatabaseMatch":"true","selfie":"'.$imageData.'"}',
+        'headers' => [
+            'accept' => 'application/json',
+            'apiKey' => 'hPuinQmwlfZlRpOrY2yL',
+            'content-type' => 'application/json',
+            'userid' => '1684246314513',
+        ],
+        ]);
+        return $response->getBody();
+
     }
     static public function createNotification($userId,$title=null,$body=null,$notification_type=null)
     {
@@ -145,6 +161,8 @@ class Helper
        }
        return false;
     }
+
+   
     public static function storeImage($image, $destinationPath, $old_image = null)
     {
         try {
@@ -156,12 +174,39 @@ class Helper
             $file = $image;
             $name =time().'-'.$file->getClientOriginalName();
             $file->move($destinationPath, $name);
+            // dd($file);
             
             return $name;
         } catch (\Exception $e) {
             return 0;
         }
     }
+
+
+    // public static function storeImage($image, $destinationPath, $old_image = null)
+    // {
+    //     try {
+    //         if (!empty($old_image)) {
+    //             $oldImagePath = $destinationPath.'/'.$old_image;
+    //             if (Storage::exists($oldImagePath)) {
+    //                 Storage::delete($oldImagePath);
+    //             }
+    //         }
+
+    //         $file = $image;
+    //         $name = time().'-'.$file->getClientOriginalName();
+
+    //         // Store the file using the Storage facade
+    //         Storage::putFileAs($destinationPath, $file, $name);
+
+    //         return $name;
+    //     } catch (\Exception $e) {
+    //         \Log::error('Error in storeImage method: ' . $e->getMessage());
+    //         return null; // Return null in case of an exception
+    //     }
+    // }
+
+
     public static function imageThumbnail($image,$destinationPath,$height,$width,$old_image = null)
     {   
         //  $destinationPath = public_path('/uploads/category-images');
@@ -204,7 +249,7 @@ class Helper
 
     public static function generateOtp()
     {
-        return rand(1111,9999);
+        return rand(111111,999999);
     }
     public static function dayFromNumber($day)
     {
@@ -222,56 +267,11 @@ class Helper
         return $days[$day];
 
     }
-    public static function userCartClear($userID)
-    {
-        $userCart=Cart::where('user_id',$userID)->first();
-        if(!empty($userCart)){
-            $userCart->delete();
-        }
-        $getCartDetails=CartDetail::where('user_id',$userID)->delete();
-        return true;
-    }
-
 
     public static function Messages() {
         $jsonString = file_get_contents(storage_path('json/message.json'));
         $data = json_decode($jsonString, true);
         return $data;
-    }
-
-    public static function units() {
-        return $units = [
-            'kg' => 'kg',
-            'grm' => 'grm',
-            'ltr' => 'ltr',
-            'ml' => 'ml',
-            'dozen' => 'dozen',
-            'pieces' => 'pieces',
-        ];
-    }
-
-    public static function deliveryRange() {
-        return $range = [
-            '500' => '500 meter',
-            '1' => '1 km',
-            '2' => '2 km',
-            '3' => '3 km',
-            '4' => '4 km',
-            '5' => '5 km',
-            '6' => '6 km',
-            '7' => '7 km',
-            '8' => '8 km',
-            '9' => '9 km',
-            '10' => '10 km',
-            '15' => '15 km',
-            '20' => '20 km',
-            '25' => '25 km',
-            '30' => '30 km',
-            '35' => '35 km',
-            '40' => '40 km',
-            '45' => '45 km',
-            '50' => '50 km',
-        ];
     }
 
     public static function notificationRange() {
@@ -281,6 +281,22 @@ class Helper
             '15' => '15 km',
             '20' => '20 km'
         ];
+    }
+
+    public static function fincraVerification($KYCInformation){
+// dd($KYCInformation);
+        $client = new \GuzzleHttp\Client();
+        
+        $response = $client->request('POST', 'https://sandboxapi.fincra.com/profile/virtual-accounts/requests/', [
+        'body' => '{"currency":"NGN","accountType":"individual","KYCInformation":'.$KYCInformation.',"channel":"providus"}',
+          'headers' => [
+            'accept' => 'application/json',
+            'api-key' => 'm98zn3Y70MXGu1VaZNhYOZO7CbULj6uU',
+            'content-type' => 'application/json',
+          ],
+        ]);
+        
+        return $response->getBody();
     }
     
     public static function distance($lat1, $lon1, $lat2, $lon2, $unit='K') {
@@ -300,99 +316,562 @@ class Helper
           }
         }
     }
+
+    public static function termii($to, $otp) {
+        $curl = curl_init();
+        $apiKey = env("TERMII_API_KEY", "");
     
-    public static function orderStatus() {
-        return $status = [
-            'OP' => 'Order Placed',
-            'A' => 'Accepted',
-            'R' => 'Reject',
-            'PC' => 'Pickup',
-            'RR' => 'Return Request',
-            'RF' => 'Refund',
-            'D' => 'Delivered',
-            'P' => 'Pending',
-        ];
-    }
-    public static function driverOrderStatus() {
-        return $status = [
-            'A'   => 'Pickup',
-            'PC'  => 'Delivered',
-        ];
-    }
-    public static function walletTransactionsStatus() {
-        return $status = [
-            'C'  => 'Credit',
-            'D'  => 'Debit',
-            'RF' => 'Refund',
-            'W'  => 'Withdrawal',
-            'E'  => 'Earn',
-            'F'  => 'Failed'
-        ];
+        $data = array(
+            "api_key" => $apiKey,
+            "to" => $to,
+            "from" => "N-Alert",
+            "sms" => "Hello from ZIP, Please find your ZIP Cash Authentication code: {$otp}",
+            "type" => "plain",
+            "channel" => "dnd"
+        );
+    
+        $data = json_encode($data);
+    
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://api.ng.termii.com/api/sms/send',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => $data,
+            CURLOPT_HTTPHEADER => array(
+                'api-key: ' . $apiKey,
+                'Content-Type: application/json'
+            ),
+        ));
+    
+        $response = curl_exec($curl);
+    
+        curl_close($curl);
+        return $response;
     }
 
-      public static function couponValid($userId) {
+    // public static function linkGeneration($amount, $currency, $name, $email)
+    // {
+    //     $curl = curl_init();
+
+    //     // Prepare the data for the POST request
+    //     $postData = array(
+    //         "amount" => $amount,
+    //         "currency" => $currency,
+    //         "customer" => array(
+    //             "name" => $name,
+    //             "email" => $email
+    //         )
+    //     );
+
+    //     // Convert the data to JSON format
+    //     $jsonData = json_encode($postData);
+
+    //     curl_setopt_array($curl, array(
+    //         CURLOPT_URL => env("LIVE_URL").'/checkout/payments',
+    //         CURLOPT_RETURNTRANSFER => true,
+    //         CURLOPT_ENCODING => '',
+    //         CURLOPT_MAXREDIRS => 10,
+    //         CURLOPT_TIMEOUT => 0,
+    //         CURLOPT_FOLLOWLOCATION => true,
+    //         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+    //         CURLOPT_CUSTOMREQUEST => 'POST',
+    //         CURLOPT_POSTFIELDS => $jsonData,
+    //         CURLOPT_HTTPHEADER => array(
+    //             'api-key: '.env("LIVE_KEY"),
+    //             'x-pub-key: pk_test_NjQ1MjliZDJiZmRmMjhlN2MxOGFhOWRhOjoxMjc5NDc=',
+    //             'x-business-id: 64529bd2bfdf28e7c18aa9da',
+    //             'Accept: application/json',
+    //             'Content-Type: application/json'
+    //         ),
+    //     ));
+
+    //     $response = curl_exec($curl);
         
-         /**Coupon value */
-         $userCart=Cart::userTempCartData($userId);
-         $userCartData=Cart::getUserCart($userId);
-         $getCartVendor = '';
-         $cartCost = 0; 
+    //     curl_close($curl);
+    //     return $response;
+    // }
 
-         foreach($userCartData as $item){
-           $getCartVendor=$item->getProductData->vendor_id;
-           $cartCost = $cartCost + (($item->getVariantData->price)*$item->qty);
-         }
+    public static function linkGeneration($amount, $currency, $name, $email ,$phoneNumber, $user_id)
+    {
+        $curl = curl_init();
 
-         $todayDate = date('Y-m-d');
-         $getCoupon=Coupon::getCouponByVendor($userCart->coupon_code,$getCartVendor);
+        $postData = array(
+            "amount" => $amount,
+            "currency" => $currency,
+            "customer" => array(
+                "name" => $name,
+                "email" => $email,
+                "phoneNumber" => $phoneNumber
+            ),
+            "paymentMethods" => [
+                "bank_transfer",
+                "card"
+            ],
+            // "redirectUrl" => "http://178.128.83.16/login",
+            "metadata" => [
+                "userId" => $user_id
+            ],
+            "feeBearer"=> "customer",
+            "settlementDestination" => "wallet",
+            "defaultPaymentMethod" => "card"
+        );
 
-         /**If coupon code invalid */
-         $couponValue=1;
+        // Convert the data to JSON format
+        $jsonData = json_encode($postData);
 
-         if(!empty($getCoupon)){
+        curl_setopt_array($curl, array(
+        // CURLOPT_URL => 'https://sandboxapi.fincra.com/checkout/payments',
+        CURLOPT_URL => env("LIVE_URL").'/checkout/payments',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_POSTFIELDS => $jsonData,
+        CURLOPT_HTTPHEADER => array(
+            'accept: application/json',
+            'x-pub-key: pk_NjQ1Zjk0MDRiYzgxODQ3YzQwZTQ0OGEwOjoxOTg1OTI=',
+            'x-business-id: '.env('BUSINESS_ID'),
+            'api-key: '.env("LIVE_KEY"),
+            'content-type: application/json'
+        ),
+        ));
 
-            if($getCoupon->valid_from > $todayDate || $getCoupon->valid_to < $todayDate){
-                $couponValue=0;
-            }
-   
-            $couponInventroy=CouponInventory::getCouponInventoryByUser($userId,$getCoupon->coupon_code);
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        return $response;
+    }
             
-            /**if user already used coupon */
-            if($getCoupon->max_reedem<=count($couponInventroy)){
-                $couponValue=0;
-            }
-   
-            /**if Coupon usage limit has been reached */
-            if($getCoupon->remainig_user==0){
-                $couponValue=0;
-            }
-           
-   
-            if($getCoupon->min_order_value > $cartCost){
-                $couponValue=0;
-            }
-         }else{
-            $couponValue=0;
-         }
-
-        if($couponValue==0 && !empty($userCart)){
-            $userCart->coupon_code = null;
-            $userCart->save();
-            return false;
-        }else{
-            return true;
-        }
-       
-    }
+    public static function virtual_account($virtualAccountId) {
+    // public static function virtual_account() {
+        $curl = curl_init();
+        
+        $url = env("LIVE_URL").'/profile/virtual-accounts/'.urlencode($virtualAccountId);
     
-    public static function vendorOrderFilter() {
-        return $filter = [
-            'this_week' => 'This Week',
-            'last_week' => 'This Week',
-            'this_month' => 'This Month',
-            'last_month' => 'This Month',
-            'custom' => 'Custom',
-        ];
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'api-key: '.env("LIVE_KEY"),
+                'Accept: application/json'
+            ),
+        ));
+        
+        $response = curl_exec($curl);
+        
+        curl_close($curl);
+        return $response;
     }
+
+    public static function fincraUsers(){
+        $client = new \GuzzleHttp\Client();
+        
+        $response = $client->request('GET', env("LIVE_URL").'/profile/virtual-accounts/?currency=NGN&status=approved', [
+          'headers' => [
+            'accept' => 'application/json',
+            'api-key' => env("LIVE_KEY"),
+          ],
+        ]);
+        
+        return $response->getBody();
+    }
+
+    public static function fincrabeneficiaries($business_id, $pageNo = 1, $perPage = 10){
+        $requestData = [
+            'page' => $pageNo,
+            'perPage' => $perPage,
+        ];
+
+        $client = new \GuzzleHttp\Client();
+    
+        $response = $client->request('GET', env("LIVE_URL").'/profile/beneficiaries/business/' . $business_id, [
+            'headers' => [
+                'accept' => 'application/json',
+                'api-key' => env("LIVE_KEY"),
+                'content-type' => 'application/json',
+            ],
+            'query' => $requestData, // Send the data as query parameters
+        ]);
+    
+        return $response->getBody();
+    }
+
+    public static function beneficiariesBussines($businessID) {
+
+        $curl = curl_init();
+
+        $url = env("LIVE_URL").'/profile/beneficiaries/business/' . urlencode($businessID);
+
+        curl_setopt_array($curl, array(
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'GET',
+        CURLOPT_HTTPHEADER => array(
+            'Accept: application/json',
+            // 'api-key: 16GH53GI9AzB17ov5QCgk1kw9m2uIGf3'
+            'api-key:'.env("LIVE_KEY"),
+        ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        return $response;
+    }
+
+    public static function payouts($business,$sourceCurrency,$destinationCurrency, $amount, $description, $customerReference, $firstName, $type, $accountHolderName, $accountNumber, $bank_code, $paymentDestination){
+        $curl = curl_init();
+
+        $postData = array(
+            "business" => $business,
+            "sourceCurrency" => $sourceCurrency,
+            "destinationCurrency" => $destinationCurrency,
+            "amount" => $amount,
+            "description"=> $description,
+            "customerReference" => $customerReference,
+            "beneficiary" => array(
+                "firstName" => $firstName,
+                "type" => $type,
+                "accountHolderName" => $accountHolderName,
+                "accountNumber" => $accountNumber,
+                "bankCode" => $bank_code,
+            ),
+            "paymentDestination"=> $paymentDestination,
+        );
+
+        $jsonData = json_encode($postData);
+
+        curl_setopt_array($curl, array(
+        CURLOPT_URL => env("LIVE_URL").'/disbursements/payouts',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_POSTFIELDS => $jsonData,
+        CURLOPT_HTTPHEADER => array(
+            'Accept: application/json',
+            'api-key:'.env("LIVE_KEY"),
+            'Content-Type: application/json'
+        ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        return $response;
+    }
+
+    // public static function payouts(){
+    //     $curl = curl_init();
+
+    //     curl_setopt_array($curl, array(
+    //     CURLOPT_URL => env("LIVE_URL").'/disbursements/payouts',
+    //     CURLOPT_RETURNTRANSFER => true,
+    //     CURLOPT_ENCODING => '',
+    //     CURLOPT_MAXREDIRS => 10,
+    //     CURLOPT_TIMEOUT => 0,
+    //     CURLOPT_FOLLOWLOCATION => true,
+    //     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+    //     CURLOPT_CUSTOMREQUEST => 'GET',
+    //     CURLOPT_POSTFIELDS =>'{
+    //         "business": "645f9404bc81847c40e448a0"
+    //     }',
+    //     CURLOPT_HTTPHEADER => array(
+    //         'Accept: application/json',
+    //         // 'api-key: 16GH53GI9AzB17ov5QCgk1kw9m2uIGf3',
+    //         'api-key:'.env("LIVE_KEY"),
+    //         'Content-Type: application/json'
+    //     ),
+    //     ));
+
+    //     $response = curl_exec($curl);
+
+    //     curl_close($curl);
+    //     return $response;
+    // }
+
+    public static function createVirtualAcc($accountType, $currency, $firstName, $lastName, $bvn, $dateOfBirth)
+    {
+        $curl = curl_init();
+
+        $postData = array(
+            "currency" => $currency,
+            "accountType" => $accountType,
+            "KYCInformation" => array(
+                "firstName" => $firstName,
+                "lastName" => $lastName,
+                "bvn" => $bvn
+            ),
+            "dateOfBirth"=> $dateOfBirth ,
+            "channel" => "globus"
+        );
+
+        // Convert the data to JSON format
+        $jsonData = json_encode($postData);
+
+        curl_setopt_array($curl, array(
+        CURLOPT_URL => env("LIVE_URL").'/profile/virtual-accounts/requests/',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_POSTFIELDS => $jsonData,
+        CURLOPT_HTTPHEADER => array(
+            'api-key:'.env("LIVE_KEY"),
+            // 'api-key: 16GH53GI9AzB17ov5QCgk1kw9m2uIGf3',
+            'Accept: application/json',
+            'Content-Type: application/json'
+        ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        return $response;
+    }
+
+    public static function createBeneficiary($businessID, $first_name, $accountHolderName, $type, $currency, $paymentDestination, $destinationAddress)
+    {
+        $curl = curl_init();
+        $url = env("LIVE_URL").'/profile/beneficiaries/business/'.urlencode($businessID);
+
+        $postData = array(
+            "firstName" => $first_name,
+            "accountHolderName" => $accountHolderName,
+            "type" => $type,
+            "currency" => $currency,
+            "paymentDestination" => $paymentDestination,
+            "destinationAddress" => $destinationAddress,
+        );
+
+        // Convert the data to JSON format
+        $jsonData = json_encode($postData);
+
+        curl_setopt_array($curl, array(
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_POSTFIELDS => $jsonData,
+        // CURLOPT_POSTFIELDS =>'{
+        //     "firstName" : '.$first_name.',
+        //     "accountHolderName" : '.$accountHolderName.',
+        //     "type" : '.$type.',
+        //     "currency" : '.$currency.',
+        //     "paymentDestination" : '.$paymentDestination.',
+        //     "destinationAddress" : '.$destinationAddress.'
+        
+        // }',
+        CURLOPT_HTTPHEADER => array(
+            'Accept: application/json',
+            // 'api-key: 16GH53GI9AzB17ov5QCgk1kw9m2uIGf3',
+            'api-key:'.env("LIVE_KEY"),
+            'Content-Type: application/json'
+        ),
+        ));
+        
+        $response = curl_exec($curl);
+        
+        curl_close($curl);
+        return $response;
+    }
+
+    public static function accountResolve($accountNumber, $bankCode)
+    {
+        $curl = curl_init();
+
+        $postData = array(
+            "accountNumber" => $accountNumber,
+            "bankCode" => $bankCode,
+            "type"     => "nuban"
+        );
+
+        // Convert the data to JSON format
+        $jsonData = json_encode($postData);
+
+        curl_setopt_array($curl, array(
+          CURLOPT_URL => env("LIVE_URL").'/core/accounts/resolve',
+          CURLOPT_RETURNTRANSFER => true,
+          CURLOPT_ENCODING => '',
+          CURLOPT_MAXREDIRS => 10,
+          CURLOPT_TIMEOUT => 0,
+          CURLOPT_FOLLOWLOCATION => true,
+          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+          CURLOPT_CUSTOMREQUEST => 'POST',
+          CURLOPT_POSTFIELDS => $jsonData,
+          CURLOPT_HTTPHEADER => array(
+            'Accept: application/json',
+            'api-key:'.env("LIVE_KEY"),
+            'Content-Type: application/json'
+          ),
+        ));
+        
+        $response = curl_exec($curl);
+        
+        curl_close($curl);
+        return $response;
+    }
+
+   public static function bankList()
+   {
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+        CURLOPT_URL => env("LIVE_URL").'/core/banks?currency=NGN&country=NG',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'GET',
+        CURLOPT_HTTPHEADER => array(
+            'Accept: application/json',
+            'api-key:'.env("LIVE_KEY"),
+        ),
+        ));
+        
+        $response = curl_exec($curl);
+        
+        curl_close($curl);
+        return $response;  
+    }
+
+   public static function services($url, $method, $postData){
+    $curl = curl_init();
+
+    curl_setopt_array($curl, array(
+      CURLOPT_URL => env("VTPASS_URL_LIVE").$url,
+    //   CURLOPT_URL => 'https://sandbox.vtpass.com/api/'.$url,
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_ENCODING => '',
+      CURLOPT_MAXREDIRS => 10,
+      CURLOPT_TIMEOUT => 0,
+      CURLOPT_FOLLOWLOCATION => true,
+      CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+      CURLOPT_CUSTOMREQUEST => $method,
+      CURLOPT_POSTFIELDS => !empty($postData) ? $postData->toArray() : [],
+    //   CURLOPT_POSTFIELDS => $postData,
+      CURLOPT_HTTPHEADER => array(
+        'accept: application/json',
+        'secret-key:'.env("VTPASS_SECRET_KEY_LIVE"),
+        'public-key:'.env("VTPASS_PUBLIC_KEY_LIVE"),
+        'api-key:'.env("VTPASS_API_KEY_LIVE"),
+        // 'Authorization: Basic YXlvZGFwb0B6aXBsaW1pdGVkLmNvbTpEQGx0b241MA== , Bearer ',
+      ),
+    ));
+    
+    $response = curl_exec($curl);
+    
+    curl_close($curl);
+    return json_decode($response, 1);
+   }
+
+   public static function bridgeCard($url, $method, $postData, $key)
+    {
+        $curl = curl_init();
+
+        $postDataArray = is_object($postData) ? $postData->toArray() : $postData;
+
+        if($key == 'cardDetails')
+        {
+            // $apiUrl = 'https://issuecards-api-bridgecard-co.relay.evervault.com/v1/issuing/sandbox/';
+            $apiUrl = env("BRIDGE_CARDDETAILS_URL_LIVE");
+        }
+        else{
+            // $apiUrl = 'https://issuecards.api.bridgecard.co/v1/issuing/sandbox/';
+            $apiUrl = env("BRIDGE_CARD_URL_LIVE");
+        }
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $apiUrl.$url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_POSTFIELDS => !empty($postDataArray) ? json_encode($postDataArray) : '{}', // Convert to JSON if not empty
+            CURLOPT_HTTPHEADER => array(
+                'Accept: application/json',
+                'token: Bearer '.env("BRIDGE_CARD_TOKEN"),
+                // 'secret key: '.env("BRIDGE_CARD_SECRETKEY"),
+                // 'token: Bearer at_test_a1f95e5af450d1d490e4b3a80ee50d44a0c058632a514fabf123cd211f1daf7e7bd09da169ee060746b95de5484018707c83f3327e5d4131eef112969af2fa1a2d1e9f9f932dbbb8ceef7e6ca3af1a0af1157188f3c2d05d68623bfed1e085fe907237d85d403d41c97334667cf3d656e7e4bc874565dafe466f4d1f109bb2dbaca43b1eb1de8cc38849c0d96d936d66602cb24474bd43a9ff4db139b82faadd6523d5137f72b5dc0637225b665016c436e8b4a3b0548aade184bd2cc2ef19990c4965c13ef7cdb0058202aa1ee85aa87faec1776853b5c0c880d911425fe075ef5c35be6e683ea58c186f48278ae430c038432092b4c12f7755c52aad7b81b1',
+                'Content-Type: application/json'
+            ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        return json_decode($response, true);
+    }
+
+    public static function currencyRate()
+    {
+        $curl = curl_init();
+        
+        curl_setopt_array($curl, array(
+          CURLOPT_URL => 'https://issuecards.api.bridgecard.co/v1/issuing/cards/fx-rate',
+          CURLOPT_RETURNTRANSFER => true,
+          CURLOPT_ENCODING => '',
+          CURLOPT_MAXREDIRS => 10,
+          CURLOPT_TIMEOUT => 0,
+          CURLOPT_FOLLOWLOCATION => true,
+          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+          CURLOPT_CUSTOMREQUEST => 'GET',
+        ));
+        
+        $response = curl_exec($curl);
+        
+        curl_close($curl);
+        return $response;
+    }
+
+    public static function bridgeCardCalculation(){
+        
+        $response = self::currencyRate();
+        $responseData = json_decode($response, true);
+        $setting = Setting::getAllSettingData();
+        $bridgeCard_fxrate_fee = $setting['bridgeCard_fxrate_fee'];
+
+        // $pay = $responseData['data']['NGN-USD'] * $bridgeCard;
+        $fxRate = $responseData['data']['NGN-USD'] / 100;
+        $pay = $fxRate + $bridgeCard_fxrate_fee;
+    
+        return $pay;
+    }
+  
+
+    
 
 }

@@ -75,6 +75,13 @@ return [
         // ],
     ],
 
+    'throttles' => [
+        'login_attempts' => [
+            'limit' => 3, // Number of login attempts allowed
+            'decay_minutes' => 30, // Time in minutes for lockout
+        ],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Resetting Passwords

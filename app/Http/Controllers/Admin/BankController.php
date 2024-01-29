@@ -33,7 +33,7 @@ class BankController extends Controller
                 $query->where('status', '=', 0);
             }
         }
-
+       
         if($request->items){
             $data['items'] = $request->items;
         }

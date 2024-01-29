@@ -17,9 +17,19 @@ class UserAddress extends Model
         'state',
         'city',
         'country',
+        'user_id'
     ];
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
+    public static function getAddressesByUser($userID) {
+        return static::where('user_id', $userID)->first();
+    }
+
+    public function user(){
+        return $this->belongsTo(User::class,'user_id','id');
+    }
+
 }

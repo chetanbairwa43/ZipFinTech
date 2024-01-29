@@ -9,6 +9,9 @@ use Illuminate\Notifications\Notifiable;
 // use Laravel\Sanctum\HasApiTokens;
 use Laravel\Passport\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\EmailTemplate;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NewSignUp;
 use Carbon\Carbon;
 
 class User extends Authenticatable
@@ -24,37 +27,43 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
-        'is_driver',
-        'is_vendor',
-        'wallet_balance',
         'name',
+        'fname',
+        'lname',
+        'country_code',
         'phone',
         'email',
-        'purpose_Category',
         'date_of_birth',
         'username',
-        'residential_address',
+        'bvn',
         'otp',
         'profile_image',
-        'latitude',
-        'longitude',
-        'location',
+        // 'latitude',
+        // 'longitude',
+        'unique_id',
+        'freshwork_id',
         'default_address',
-        'referal_code',
         'device_token',
         'device_id',
-        'is_driver_online',
-        'is_vendor_online',
-        'delivery_range',
-        'self_delivery',
-        'admin_commission',
-        'as_driver_verified',
-        'as_vendor_verified',
         'featured_store',
         'password',
         'status',
         'otp_created_at',
         'otp_verified',
+        'zip_tag',
+        'verification_image',
+        'is_africa_verifed',
+        'pin_reset_otp',
+        'tranfer_limit',
+        'birth_place',
+        'dob',
+        'nationality',
+        'pin',
+        'gender',
+        'primary_purpose',
+        'cardholder_id',
+        'created_origin',
+        'user_image',
     ];
 
     /**
@@ -81,32 +90,46 @@ class User extends Authenticatable
         return $this->belongsToMany(Permission::class);
     }
 
+    public function virtual()
+    {
+        return $this->hasOne(VirtualAccounts::class,'user_id','id');
+    }
+
+
     public function roles()
     {
         return $this->belongsToMany(Role::class);
     }
-    
-    public function driver() {
-        return $this->hasOne(DriverProfile::class,'user_id');
-    }
-    
-    public function vendor() {
-        return $this->hasOne(VendorProfile::class, 'user_id');
-    }
-    public function staffPermissions() {
-        return $this->hasMany(StaffPermissions::class, 'user_id','id');
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
     }
 
-    public function vendor_availability() {
-        return $this->hasMany(VendorAvailability::class, 'user_id');
-    }
+    // public function virtualAccounts() {
+    //     return $this->hasOne(VirtualAccounts::class,'user_id');
+    // }
 
-    public function vendorProducts(){
-      return $this->hasMany(VendorProduct::class,'vendor_id','id');
-    }
+    // public function vendor() {
+    //     return $this->hasOne(VendorProfile::class, 'user_id');
+    // }
+    // public function staffPermissions() {
+    //     return $this->hasMany(StaffPermissions::class, 'user_id','id');
+    // }
+
+    // public function vendor_availability() {
+    //     return $this->hasMany(VendorAvailability::class, 'user_id');
+    // }
+
+    // public function vendorProducts(){
+    //   return $this->hasMany(VendorProduct::class,'vendor_id','id');
+    // }
 
     public function bank_account() {
         return $this->hasOne(BankAccount::class,'user_id');
+    }
+    public function virtualAccounts() {
+        return $this->hasOne(VirtualAccounts::class,'user_id','id');
     }
 
     public static function getAllVendorsNameAndId() {
@@ -115,7 +138,7 @@ class User extends Authenticatable
 
 
     /**
-     * Only For Api 
+     * Only For Api
      */
     public function vendor_available() {
         $today = Carbon::now();
@@ -133,6 +156,24 @@ class User extends Authenticatable
      */
     public static function findByPhone($phone = null) {
         return static::where('phone', $phone)->first();
+    }
+
+    public static function getUserByBVN($bvn) {
+        return static::where('bvn', $bvn)->first();
+    }
+
+    public static function getUserByPhone($phoneNumber) {
+        return static::where('phone', $phoneNumber)->first();
+    }
+
+    public static function findByPhoneOrEmail($phoneEmail = null) {
+        return static::where(function($query) use ($phoneEmail) {
+            $query->where('phone', $phoneEmail)
+                ->orWhere('email', $phoneEmail);
+        })->first();
+    } 
+    public static function getUserByEmail($email) {
+        return static::where('email', $email)->first();
     }
 
     /**
@@ -175,64 +216,16 @@ class User extends Authenticatable
     }
     /**
      * Get Vendor's Name and Id .
-     * 
+     *
      * returns vendors's Name and Id
      */
     public static function getVendorNameAndId() {
         return static::where('is_vendor', '=', 1)->pluck('name', 'id');
     }
-     
-    // public static function featuredStoreWithDistance($latitude, $longitude,$limit){
-    //     $haversine = "(
-    //         6371 * acos(
-    //             cos(radians(" .$latitude. "))
-    //             * cos(radians(`latitude`))
-    //             * cos(radians(`longitude`) - radians(" .$longitude. "))
-    //             + sin(radians(" .$latitude. ")) * sin(radians(`latitude`))
-    //         )
-    //     )";
 
-    //     $data = static::select("*")
-    //         ->where('is_vendor', 1)
-    //         ->where('featured_store',true)
-    //         ->where('as_vendor_verified',true)
-    //         ->selectRaw("round($haversine, 2) AS distance")
-    //         ->take($limit)
-    //         ->get();
 
-    //     return $data;
-    // }
-    // public static function storeDistance($latitude, $longitude, $distance, $page) {
-         
-     
-    //     $haversine = "(
-    //         6371 * acos(
-    //             cos(radians(" .$latitude. "))
-    //             * cos(radians(`latitude`))
-    //             * cos(radians(`longitude`) - radians(" .$longitude. "))
-    //             + sin(radians(" .$latitude. ")) * sin(radians(`latitude`))
-    //         )
-    //     )";
-    //     // $data = static::with('vendor_availability')->whereHas('vendor_availability', function($q) {
-    //     //         $q->where('status', 1);
-    //     //     })->get();
-
-    //     $data = static::select("*")
-    //         ->where('is_vendor', 1)
-    //         ->where('as_vendor_verified', 1)
-    //         // ->where('is_vendor_online', 1)
-    //         // ->with('vendor')
-    //         // ->with('vendor_available')->whereHas('vendor_available')
-    //         ->selectRaw("round($haversine, 2) AS distance")
-    //         // ->where("distance", "<=", 'delivery_range')
-    //         ->having("distance", "<=", $distance)
-    //         ->orderby("distance", "asc")
-    //         ->paginate($page);
-
-    //     return $data;
-    // }
     public static function getDriversWithStoreDistance($latitude, $longitude, $distance) {
-         
+
         $haversine = "(
             6371 * acos(
                 cos(radians(" .$latitude. "))
@@ -255,29 +248,95 @@ class User extends Authenticatable
         return $data;
     }
 
-    // public static function getStoreCategoryWise($latitude, $longitude, $distance, $pagination, $vendor_id) {
-         
-    //     $haversine = "(
-    //         6371 * acos(
-    //             cos(radians(" .$latitude. "))
-    //             * cos(radians(`latitude`))
-    //             * cos(radians(`longitude`) - radians(" .$longitude. "))
-    //             + sin(radians(" .$latitude. ")) * sin(radians(`latitude`))
-    //         )
-    //     )";
+    public static function getDataByType($type, $zip_id=NULL, $email=NULL, $phone=null ) {
+        $query = static::where('type', $type);
 
-    //     $data = User::select("*")
-    //     ->whereIn('id', $vendor_id)
-    //     ->where('as_vendor_verified', 1)
-    //     // ->where('is_vendor_online', 1)
-    //     // ->with('vendor')
-    //     // ->with('vendor_available')->whereHas('vendor_available')
-    //     ->selectRaw("round($haversine, 2) AS distance")
-    //     // ->where("distance", "<=", 'delivery_range')
-    //     ->having("distance", "<=", $distance)
-    //     ->orderby("distance", "asc")
-    //     ->paginate($pagination);
+            if($type == 'zip_id') {
+                $query->where('zip_id', $zip_id);
+            }
+            if($type == 'email') {
+                $query->where('email', $email);
+            }
+            if($type == 'phone') {
+                $query->where('phone', $phone);
+            }
 
-    //     return $data;
-    // }
+        return $data = $query;
+    }
+
+    public function getAvailableAmountAttribute()
+    {
+        $credits = $this->transactions()->where('transaction_type', 'cr')->sum('amount');
+        $debits = $this->transactions()->where('transaction_type', 'dr')->sum('amount');
+
+        return $credits - $debits;
+    }
+
+    public function getLastTransactionAttribute()
+    {
+        return $this->transactions()->latest('created_at')->first();
+    }
+
+    public function generateTwoFactorCode()
+    {
+        $this->timestamps = false; //Dont update the 'updated_at' field yet
+
+        // $otp = rand(100000, 999999);
+        $otp = 123456;
+
+        $this->two_factor_code = $otp;
+        // $this->two_factor_expires_at = now()->addMinutes(5);
+        $this->save();
+
+        //send email
+        $mailData = EmailTemplate::getMailByMailCategory(strtolower('2FA'));
+        if(isset($mailData)) {
+
+            $arr1 = array('{otp}');
+            $arr2 = array($otp);
+
+            $email_content = $mailData->email_content;
+            $email_content = str_replace($arr1, $arr2, $email_content);
+
+            $config = [
+                'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
+                'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
+                'subject' => $mailData->email_subject,
+                'message' => $email_content,
+            ];
+
+            try {
+                //code...
+                Mail::to($this->email)->send(new NewSignUp($config));
+            } catch (\Throwable $th) {
+                throw $th;
+            }
+        }
+
+    }
+
+    /**
+     * Reset the MFA code generated earlier
+     */
+    public function resetTwoFactorCode()
+    {
+        $this->timestamps = false; //Dont update the 'updated_at' field yet
+
+        $this->two_factor_code = null;
+        $this->two_factor_expires_at = now();
+        $this->save();
+    }
+
+    public function address(){
+        return $this->hasOne(UserAddress::class,'id','user_id');
+    }
+
+    public function cardData(){
+        return $this->hasOne(UserCard::class);
+    }
+
+    public function bebeficiaries(){
+        return $this->hasMany(Beneficiary::class,'unique_id','unique_id');
+    }
+
 }
