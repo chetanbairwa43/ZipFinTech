@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Setting;
 use App\Helper\ResponseBuilder;
 use App\Models\WalletTransaction;
+use App\Models\Transaction;
 use App\Models\RequestMoney;
 use App\Models\EmailTemplate;
 use App\Models\User;
@@ -178,6 +179,7 @@ class WalletController extends Controller
             //mail code goes here
             // $email = User::where('id',$request->pay_user_id)->pluck('email')->first();
             $users = User::where('email',$request->email)->first();
+            $tids = Transaction::where('user_id',$user->id)->latest()->first();
             // $mailData = EmailTemplate::getMailByMailCategory('Request Money');
             $mailData = EmailTemplate::getMailByMailCategory('ZIP2ZIP request');
             if(isset($mailData)) {
@@ -201,6 +203,30 @@ class WalletController extends Controller
                 } catch (\Throwable $th) {
                     throw $th;
                 }   
+            }
+
+            $mailDatas = EmailTemplate::getMailByMailCategory('ZIP to ZIP sent money');
+            if(isset($mailDatas)) {
+
+                $arr1 = array('{amount}','{name}','{receiverName}','{zipTag}','{receEmail}','{recephone}','{receiver}','{receive}','{received}','{tran}','{trandate}');
+                $arr2 = array($request->amount,$user->fname,$user->fname,$user->zip_tag,$user->email,$user->phone,$users->email,$users->fname.' '.$users->lname, $users->phone,$tids->t_id,$tids->created_at);
+
+                $email_content = $mailDatas->email_content;
+                $email_content = str_replace($arr1, $arr2, $email_content);
+            
+                $config = [
+                    'from_email' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_ADDRESS'),
+                    'name' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_NAME'),
+                    'subject' => $mailDatas->email_subject, 
+                    'message' => $email_content,
+                ];
+                
+                try {
+                    //code...
+                    Mail::to($user->email)->send(new NewSignUp($config));
+                } catch (\Throwable $th) {
+                    throw $th;
+                } 
             }
 
 
@@ -232,12 +258,11 @@ class WalletController extends Controller
             $mytime = Carbon\Carbon::now()->format('d-m-y');
             $mailData = EmailTemplate::getMailByMailCategory('Payment link request');
 
-            // $mailData = EmailTemplate::getMailByMailCategory('Request Money');
             if($request->type=='request Payment'){
                 if(isset($mailData)) {
 
                     $arr1 = array('{requested_name}','{by_requested_name}','{amount}','{date}','{phone}','{email}','{generate_link}','{type}');
-                    $arr2 = array($request->requested_id,$data->fname,$request->amount,$mytime,$request->phone,$request->email,$request->generate_link,$request->type);
+                    $arr2 = array($request->requested_id,$data->fname,$request->amount,$mytime,$data->phone,$data->email,$request->generate_link,$request->type);
     
                     $email_content = $mailData->email_content;
                     $email_content = str_replace($arr1, $arr2, $email_content);
@@ -256,7 +281,35 @@ class WalletController extends Controller
                         throw $th;
                     }   
                 }
+
+
+                $mailDatas = EmailTemplate::getMailByMailCategory('Payment link send');
+
+                if(isset($mailDatas)) {
+
+                    $arr1 = array('{requested_name}','{by_requested_name}','{amount}','{date}','{phone}','{email}','{generate_link}','{type}');
+                    $arr2 = array($request->requested_id,$data->fname,$request->amount,$mytime,$data->phone,$data->email,$request->generate_link,$request->type);
+
+                    $email_content = $mailDatas->email_content;
+                    $email_content = str_replace($arr1, $arr2, $email_content);
+                
+                    $config = [
+                        'from_email' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_ADDRESS'),
+                        'name' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_NAME'),
+                        'subject' => $mailDatas->email_subject, 
+                        'message' => $email_content,
+                    ];
+                    
+                    try {
+                        //code...
+                        Mail::to($data->email)->send(new NewSignUp($config));
+                    } catch (\Throwable $th) {
+                        throw $th;
+                    }   
+                }
             }
+
+            
            
 
 

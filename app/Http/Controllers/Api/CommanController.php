@@ -281,63 +281,114 @@ class CommanController extends Controller
             return ResponseBuilder::error($isInValid, $this->badRequest);
         }
         $user = Auth::user();
+        // $tid = Transaction::where('user_id',$user->id)->latest()->pluck('t_id');
+        $tids = Transaction::where('user_id',$user->id)->latest()->first();
+        // return $tids;
+        $mytime = Carbon::now();
         try {
             $Data = User::where('id',$request->zip_user_id)->select('email','name','fname')->first();
             if($Data) {
                 if($request->type == 'request'){
-                    $mailData = EmailTemplate::getMailByMailCategory('Request Money');
+                        $mailData = EmailTemplate::getMailByMailCategory('ZIP2ZIP request');
+                        if(isset($mailData)) {
+
+                            $arr1 = array('{amount}','{name}','{receiverName}','{zipTag}','{receEmail}','{recephone}','{receiver}');
+                            $arr2 = array($request->amount,$Data->fname,$user->fname,$user->zip_tag,$user->email,$user->phone,$mytime);
+
+                            $email_content = $mailData->email_content;
+                            $email_content = str_replace($arr1, $arr2, $email_content);
+                        
+                            $config = [
+                                'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
+                                'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
+                                'subject' => $mailData->email_subject, 
+                                'message' => $email_content,
+                            ];
+                            
+                            try {
+                                //code...
+                                Mail::to($Data->email)->send(new NewSignUp($config));
+                            } catch (\Throwable $th) {
+                                throw $th;
+                            }   
+                        }
+
+                        $mailDatas = EmailTemplate::getMailByMailCategory('ZIP to ZIP sent money');
+                        if(isset($mailDatas)) {
+
+                            $arr1 = array('{amount}','{name}','{receiver}','{receive}','{received}','{tran}','{trandate}');
+                            $arr2 = array($request->amount,$user->fname,$Data->email,$Data->fname.' '.$Data->lname, $Data->phone,$tids->t_id,$tids->created_at);
+
+                            $email_content = $mailDatas->email_content;
+                            $email_content = str_replace($arr1, $arr2, $email_content);
+                        
+                            $config = [
+                                'from_email' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_ADDRESS'),
+                                'name' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_NAME'),
+                                'subject' => $mailDatas->email_subject, 
+                                'message' => $email_content,
+                            ];
+                            
+                            try {
+                                //code...
+                                Mail::to($user->email)->send(new NewSignUp($config));
+                            } catch (\Throwable $th) {
+                                throw $th;
+                            } 
+                        }
+            }else{
+                    $mailData = EmailTemplate::getMailByMailCategory('ZIP2ZIP request');
                     if(isset($mailData)) {
 
-                        $arr1 = array('{amount}','{name}');
-                        $arr2 = array($request->amount,$user->fname);
+                        $arr1 = array('{amount}','{name}','{receiverName}','{zipTag}','{receEmail}','{recephone}','{receiver}');
+                        $arr2 = array($request->amount,$Data->fname,$user->fname,$user->zip_tag,$user->email,$user->phone,$mytime);
 
                         $email_content = $mailData->email_content;
                         $email_content = str_replace($arr1, $arr2, $email_content);
-
+                    
                         $config = [
                             'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
                             'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
-                            'subject' => $mailData->email_subject,
+                            'subject' => $mailData->email_subject, 
                             'message' => $email_content,
                         ];
-
+                        
                         try {
                             //code...
                             Mail::to($Data->email)->send(new NewSignUp($config));
-                            return ResponseBuilder::successMessage('Request mail sent successfully', $this -> success);
                         } catch (\Throwable $th) {
                             throw $th;
-                        }
+                        }   
                     }
-                }else{
-                    $mailData = EmailTemplate::getMailByMailCategory('Send Money');
-                    if(isset($mailData)) {
 
-                        $arr1 = array('{amount}','{name}');
-                        $arr2 = array($request->amount,$user->fname);
+                    $mailDatas = EmailTemplate::getMailByMailCategory('ZIP to ZIP sent money');
+                        if(isset($mailDatas)) {
 
-                        $email_content = $mailData->email_content;
-                        $email_content = str_replace($arr1, $arr2, $email_content);
+                            $arr1 = array('{amount}','{name}','{receiverName}','{zipTag}','{receEmail}','{recephone}','{receiver}','{receive}','{received}','{tran}','{trandate}');
+                            $arr2 = array($request->amount,$user->fname,$user->fname,$user->zip_tag,$user->email,$user->phone,$Data->email,$Data->fname.' '.$Data->lname, $Data->phone,$tids->t_id,$tids->created_at);
 
-                        $config = [
-                            'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
-                            'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
-                            'subject' => $mailData->email_subject,
-                            'message' => $email_content,
-                        ];
-
-                        try {
-                            //code...
-                            Mail::to($Data->email)->send(new NewSignUp($config));
-                            return ResponseBuilder::successMessage('Mail sent successfully', $this -> success);
-                        } catch (\Throwable $th) {
-                            throw $th;
+                            $email_content = $mailDatas->email_content;
+                            $email_content = str_replace($arr1, $arr2, $email_content);
+                        
+                            $config = [
+                                'from_email' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_ADDRESS'),
+                                'name' => isset($mailDatas->from_email) ? $mailDatas->from_email : env('MAIL_FROM_NAME'),
+                                'subject' => $mailDatas->email_subject, 
+                                'message' => $email_content,
+                            ];
+                            
+                            try {
+                                //code...
+                                Mail::to($user->email)->send(new NewSignUp($config));
+                            } catch (\Throwable $th) {
+                                throw $th;
+                            }   
                         }
-                    }
                 }
 
             }
 
+        return ResponseBuilder::successMessage('Mail sent successfully',$this->success);
         } catch (\Throwable $th) {
             //throw $th;
             return ResponseBuilder::error($th -> getMessage(), $this -> badRequest);
@@ -515,11 +566,13 @@ class CommanController extends Controller
             }
 
             if($request->key == 'link'){
-                // $user = Auth::guard('api')->user();
+                $users = Auth::guard('api')->user();
                 $user = User::where('email',$request->customer['email'])->first();
                 $setting = Setting::getAllSettingData();
                 $payout_fee = $setting['payout_fee'];
                 $payout_fee = (int)$payout_fee;
+                $now = Carbon::now('GMT+1');
+                $unique_code = $now->format('YmdHis').$users->id;
                 // $user = $users->id;
                 $link = Helper::linkGeneration($request->amount, $request->currency, $request->customer['name'], $request->customer['email'], $request->customer['phoneNumber'],$user->id);
 
@@ -528,8 +581,8 @@ class CommanController extends Controller
                     'receiver_id' => $user->id,
                     'transaction_type' => 'dr',
                     't_id' => $user->unique_id,
-                    'transaction_about' => $response['content']['transactions']['type'],
-                    'amount' => $response['content']['transactions']['amount'] + $payout_fee,
+                    'transaction_about' => 'Link Generation Fees',
+                    'amount' => $request->amount + $payout_fee,
                     'phone' => $user->phone,
                     'customer_reference' => $unique_code
                 ]);
@@ -541,28 +594,32 @@ class CommanController extends Controller
                 
                 return json_decode($link);
 
-            // } elseif($request->key == 'virtualAccount'){
-            //     $virtual_acc = Helper::virtual_account($request->virtualAccountId);
-            //     $virtual_acc = Helper::virtual_account();
-            //     return json_decode($virtual_acc);
-
             } 
             elseif($request->key == 'beneficiariesBussines'){
                 $bussines = Helper::beneficiariesBussines($request->businessID);
                 return json_decode($bussines);
 
             } elseif($request->key == 'payouts'){
-               
                 $user = User::where('id', $request->user_id)->first();
                 $id = $user->id;
                 $web = WebhookDetails::latest('created_at')->first();
                 $webId = $web->id + 1;
                 $custReference = $id."-".$webId;
+                $request['customerReference'] = $custReference;
 
                 $setting = Setting::getAllSettingData();
                 $payout_fee = $setting['payout_fee'];
+                $cash_out = $setting['cashout_fee'];
                 $payout_fee = (int)$payout_fee;
-
+                // $cashout_fee = (int)$cashout_fee;
+                $amount = (int)$request->amount + $payout_fee;
+                // if($request->beneficiary['about'] == "Pay Out")
+                // {
+                //     $amount = (int)$request->amount + $payout_fee;
+                // } else {
+                //     $amount = (int)$request->amount + $cashout_fee;
+                // }
+                
 
                 $referenceId = WebhookDetails::create([
                     'user_id' => $id,
@@ -574,8 +631,7 @@ class CommanController extends Controller
                     'customer_reference' => $custReference,
                     'transaction_type' => 'dr',
                     't_id' => $user->unique_id,
-                    // 'amount' => $request->amount + $payout_fee,
-                    'amount' => $request->amount,
+                    'amount' => $amount,
                     'phone' => $user->phone,
                     'transaction_about' => $request->beneficiary['about'],
                 ]);
@@ -587,29 +643,32 @@ class CommanController extends Controller
 
                 $tid = Transaction::where('id',$trans->id)->pluck('t_id')->first();
                 $tids = Transaction::where('id',$trans->id)->first();
-                $users = VirtualAccounts::where('user_id',$tids->user_id)->first();
-                $dataArray  = json_decode($users['accountInformation'], true);
-                $bankName = $dataArray['bankName'];
-                $dataArray  = json_decode($users['KYCInformation'], true);
-                $firstName = $dataArray['firstName'];
+                $users = VirtualAccounts::where('accountNumber',$request->beneficiary['accountNumber'])->first(); 
+                if(!empty($users))
+                {
+                    $dataArray  = json_decode($users['accountInformation'], true);
+                    $bankName = $dataArray['bankName'];
+                    $dataArray  = json_decode($users['KYCInformation'], true);
+                    $firstName = $dataArray['firstName'];
+                }
                 $fname = $trans->user ? $trans->user->fname : "";
                 $lname = $trans->user ? $trans->user->lname : "";
                 $loginName =  $fname ." ". $lname;
 
-                if($user->available_amount <= $request->amount){
+                if($user->available_amount <= $amount){
                     return ResponseBuilder::error('You do not have enough balance to make this payment', $this->badRequest,$user->available_amount);
                 }
 
                 $pay = Helper::payouts($request->business,$request->sourceCurrency,$request->destinationCurrency,$request->amount,$request->description,$custReference,$request->beneficiary['firstName'],$request->beneficiary['type'],$request->beneficiary['accountHolderName'],$request->beneficiary['accountNumber'],$request->beneficiary['bank_code'],$request->paymentDestination);
 
-                if($request->beneficiary['about'] == "Send Cash")
+                if($request->beneficiary['about'] == "Cash Out" || $request->beneficiary['about'] == "Pay Out")
                 {
                     $mailData = EmailTemplate::getMailByMailCategory(strtolower('Sent receipt'));
                     if(isset($mailData)) {
         
                         $arr1 = array('{name}','{amount}','{r_name}', '{t_id}','{transaction_date}','{transaction_about}','{dataplan}','{accountNumber}','{bankname}');
         
-                        $arr2 = array($loginName ??'',$request->amount ??'',$firstName ??'', $tid ??'-',$trans->created_at->format('d F Y'),$request->about ??'',$request->dataplan,$users->accountNumber,$bankName);
+                        $arr2 = array($loginName ??'',$amount ??'',$firstName ?? $request->beneficiary['accountHolderName'], $tid ??'-',$trans->created_at->format('d F Y'),$request->about ??'',$request->dataplan,$request->beneficiary['accountNumber'],$request->beneficiary['firstName']);
         
                         $msg = $mailData->email_content;
                         $msg = str_replace($arr1, $arr2, $msg);
@@ -617,60 +676,6 @@ class CommanController extends Controller
                         $email_content = str_replace($arr1, $arr2, $email_content);
                     
                             $config = [
-                            'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
-                            'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
-                            'subject' => $mailData->email_subject, 
-                            'message' => $email_content,
-                        ];
-                        
-                        try {
-                            Mail::to($user->email)->send(new NewSignUp($config));
-                        } catch (\Throwable $th) {
-                            throw $th;
-                        } 
-                    }
-                }elseif($request->beneficiary['about'] == "Request Cash")
-                {
-                    $mailData = EmailTemplate::getMailByMailCategory(strtolower('Bank request'));
-                    if(isset($mailData)) {
-        
-                        $arr1 = array('{name}','{amount}','{r_name}', '{t_id}','{transaction_date}','{transaction_about}','{dataplan}','{accountNumber}','{bankname}','{phone}');
-        
-                        $arr2 = array($loginName ??'',$request->amount ??'',$firstName ??'', $tid ??'-',$trans->created_at->format('d F Y'),$request->about ??'',$request->dataplan,$users->accountNumber,$bankName,$user->phone);
-        
-                        $msg = $mailData->email_content;
-                        $msg = str_replace($arr1, $arr2, $msg);
-                        $email_content = $mailData->email_content;
-                        $email_content = str_replace($arr1, $arr2, $email_content);
-                    
-                            $config = [
-                            'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
-                            'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
-                            'subject' => $mailData->email_subject, 
-                            'message' => $email_content,
-                        ];
-                        
-                        try {
-                            Mail::to($user->email)->send(new NewSignUp($config));
-                        } catch (\Throwable $th) {
-                            throw $th;
-                        } 
-                    }
-                }elseif($request->beneficiary['about'] == "Withdrawl Cash")
-                {
-                    $mailData = EmailTemplate::getMailByMailCategory(strtolower('Withdrawal'));
-                    if(isset($mailData)) {
-        
-                        $arr1 = array('{name}','{amount}','{r_name}', '{t_id}','{transaction_date}','{transaction_about}','{dataplan}','{accountNumber}','{bankname}','{phone}');
-        
-                        $arr2 = array($loginName ??'',$request->amount ??'',$firstName ??'', $tid ??'-',$trans->created_at->format('d F Y'),$request->about ??'',$request->dataplan,$users->accountNumber,$bankName,$user->phone);
-        
-                        $msg = $mailData->email_content;
-                        $msg = str_replace($arr1, $arr2, $msg);
-                        $email_content = $mailData->email_content;
-                        $email_content = str_replace($arr1, $arr2, $email_content);
-                    
-                             $config = [
                             'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
                             'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
                             'subject' => $mailData->email_subject, 
@@ -684,6 +689,7 @@ class CommanController extends Controller
                         } 
                     }
                 }
+               
                 return json_decode($pay);
                 
             } elseif($request->key == 'createAcc'){
@@ -770,25 +776,30 @@ class CommanController extends Controller
                 if($user->available_amount <= $request->amount){
                     return ResponseBuilder::error('You Do not have enough balance to make this payment', $this->badRequest,$user->available_amount);
                 }
+                if(empty($request['billersCode']))
+                {
+                    $request['billersCode'] = $request['phone'];
+                }
 
                 $response = Helper::services('pay', 'POST', $request);
 
-                $trans = Transaction::create([
-                    'user_id'   => $user->id,
-                    'receiver_id' => $user->id,
-                    'transaction_type' => 'dr',
-                    't_id' => $user->unique_id,
-                    'transaction_about' => $response['content']['transactions']['type'],
-                    'amount' => $response['content']['transactions']['amount'],
-                    'phone' => $user->phone,
-                    'telcos' =>  $request->telcos ?? null,
-                    'dataplan' =>  $request->data_code ?? null,
-                    'customer_reference' => $unique_code
-                ]);
+                if (isset($response) && isset($response['code']) && $response['code'] == '000') {
+                    $trans = Transaction::create([
+                        'user_id'   => $user->id,
+                        'receiver_id' => $user->id,
+                        'transaction_type' => 'dr',
+                        't_id' => $user->unique_id,
+                        'transaction_about' => $response['content']['transactions']['type'],
+                        'amount' => $response['content']['transactions']['amount'] + $service_fee,
+                        'phone' => $user->phone,
+                        'telcos' =>  $request->telcos ?? null,
+                        'dataplan' =>  $request->data_code ?? null,
+                        'customer_reference' => $unique_code
+                    ]);
 
-                $user->wallet_balance -= $trans->amount;
-                $user->save();
-
+                    $user->wallet_balance -= $trans->amount;
+                    $user->save();
+                }
                 // $balance = $user->available_amount - $service_fee;
                 
                 $webData = WebhookDetails::create([
@@ -807,7 +818,8 @@ class CommanController extends Controller
                         'transaction_type' => 'cr',
                         't_id' => $user->unique_id,
                         'transaction_about' => 'Transaction Failed',
-                        'amount' => $response['content']['transactions']['amount'],
+                        // 'amount' => $response['content']['transactions']['amount'],
+                        'amount' => $request->amount,
                         'phone' => $user->phone,
                         'customer_reference' => $unique_code
                     ]);
@@ -823,7 +835,7 @@ class CommanController extends Controller
     
                     $arr1 = array('{name}','{amount}','{t_id}','{transaction_date}','{transaction_about}','{dataplan}','{phone}','{telcos}','{mainToken}','{bonusToken}');
     
-                    $arr2 = array($loginName ??'',$trans->amount ??'', $user->unique_id ??'-',$trans->created_at->format('d F Y'),$trans->transaction_about ??'',$trans->dataplan,$user->phone,$trans->telcos, isset($response['token']) && !empty($response['token']) ? 'Main Token: '.$response['token'] : '', isset($response['bonusToken']) && !empty($response['bonusToken']) ? 'Bonus Token: '.$response['bonusToken'] : '');
+                    $arr2 = array($loginName ??'',$trans->amount ??'', $user->unique_id ??'-',$trans->created_at->format('d F Y'),$trans->transaction_about ??'',$trans->dataplan,$request->phone ?? $user->phone,$trans->telcos, isset($response['token']) && !empty($response['token']) ? 'Main Token: '.$response['token'] : '', isset($response['bonusToken']) && !empty($response['bonusToken']) ? 'Bonus Token: '.$response['bonusToken'] : '');
     
                     $msg = $mailData->email_content;
                     $msg = str_replace($arr1, $arr2, $msg);

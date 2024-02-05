@@ -398,6 +398,7 @@ class Helper
 
     public static function linkGeneration($amount, $currency, $name, $email ,$phoneNumber, $user_id)
     {
+        
         $curl = curl_init();
 
         $postData = array(
@@ -412,7 +413,6 @@ class Helper
                 "bank_transfer",
                 "card"
             ],
-            // "redirectUrl" => "http://178.128.83.16/login",
             "metadata" => [
                 "userId" => $user_id
             ],
@@ -437,7 +437,8 @@ class Helper
         CURLOPT_POSTFIELDS => $jsonData,
         CURLOPT_HTTPHEADER => array(
             'accept: application/json',
-            'x-pub-key: pk_NjQ1Zjk0MDRiYzgxODQ3YzQwZTQ0OGEwOjoxOTg1OTI=',
+            // 'x-pub-key: pk_NjQ1Zjk0MDRiYzgxODQ3YzQwZTQ0OGEwOjoxOTg1OTI=',
+            'x-pub-key: pk_test_NjQ1MjliZDJiZmRmMjhlN2MxOGFhOWRhOjoxMjc5NDc=',
             'x-business-id: '.env('BUSINESS_ID'),
             'api-key: '.env("LIVE_KEY"),
             'content-type: application/json'
@@ -557,7 +558,6 @@ class Helper
             ),
             "paymentDestination"=> $paymentDestination,
         );
-
         $jsonData = json_encode($postData);
 
         curl_setopt_array($curl, array(

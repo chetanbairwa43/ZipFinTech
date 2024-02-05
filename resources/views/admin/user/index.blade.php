@@ -96,7 +96,7 @@
                                         <th>Last Name</th>
                                         <th>Email</th>
                                         <th>Phone Number</th>
-                                        <th>Wallet Balance</th>
+                                        {{-- <th>Wallet Balance</th> --}}
                                         {{-- <th>User Type</th> --}}
                                         <th>Tranfer Limit</th>
                                         <th>Created Origin</th>
@@ -121,7 +121,7 @@
                                             <td>{{ $value->lname ?? '-' }}</td>
                                             <td>{{ $value->email ?? '-' }}</td>
                                             <td>{{ $value->phone ?? '-' }}</td>
-                                            <td>{{ number_format((float)$value->wallet_balance, 2, '.', '') }}</td>
+                                            {{-- <td>{{ number_format((float)$value->wallet_balance, 2, '.', '') }}</td> --}}
                                             {{-- <td>
                                                 @foreach($value->roles as $key => $item)
                                                     <span class="badge badge-opacity-primary text-capitalize">{{ $item->name }}</span>
