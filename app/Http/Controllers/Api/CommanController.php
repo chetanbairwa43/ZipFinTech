@@ -286,7 +286,7 @@ class CommanController extends Controller
         // return $tids;
         $mytime = Carbon::now();
         try {
-            $Data = User::where('id',$request->zip_user_id)->select('email','name','fname')->first();
+            $Data = User::where('id',$request->zip_user_id)->select('email','name','fname','phone')->first();
             if($Data) {
                 if($request->type == 'request'){
                         $mailData = EmailTemplate::getMailByMailCategory('ZIP2ZIP request');
@@ -575,22 +575,6 @@ class CommanController extends Controller
                 $unique_code = $now->format('YmdHis').$users->id;
                 // $user = $users->id;
                 $link = Helper::linkGeneration($request->amount, $request->currency, $request->customer['name'], $request->customer['email'], $request->customer['phoneNumber'],$user->id);
-
-                $trans = Transaction::create([
-                    'user_id'   => $user->id,
-                    'receiver_id' => $user->id,
-                    'transaction_type' => 'dr',
-                    't_id' => $user->unique_id,
-                    'transaction_about' => 'Link Generation Fees',
-                    'amount' => $request->amount + $payout_fee,
-                    'phone' => $user->phone,
-                    'customer_reference' => $unique_code
-                ]);
-
-                $user->wallet_balance -= $trans->amount;
-                $user->save();
-
-                // $balance = $user->available_amount - $payout_fee;
                 
                 return json_decode($link);
 
@@ -619,7 +603,11 @@ class CommanController extends Controller
                 // } else {
                 //     $amount = (int)$request->amount + $cashout_fee;
                 // }
-                
+                              
+
+                if($user->available_amount <= $amount){
+                    return ResponseBuilder::error('You do not have enough balance to make this payment', $this->badRequest,$user->available_amount);
+                }
 
                 $referenceId = WebhookDetails::create([
                     'user_id' => $id,
@@ -640,56 +628,60 @@ class CommanController extends Controller
 
                 $user->wallet_balance -= $trans->amount;
                 $user->save();
-
-                $tid = Transaction::where('id',$trans->id)->pluck('t_id')->first();
-                $tids = Transaction::where('id',$trans->id)->first();
-                $users = VirtualAccounts::where('accountNumber',$request->beneficiary['accountNumber'])->first(); 
-                if(!empty($users))
-                {
-                    $dataArray  = json_decode($users['accountInformation'], true);
-                    $bankName = $dataArray['bankName'];
-                    $dataArray  = json_decode($users['KYCInformation'], true);
-                    $firstName = $dataArray['firstName'];
-                }
-                $fname = $trans->user ? $trans->user->fname : "";
-                $lname = $trans->user ? $trans->user->lname : "";
-                $loginName =  $fname ." ". $lname;
-
-                if($user->available_amount <= $amount){
-                    return ResponseBuilder::error('You do not have enough balance to make this payment', $this->badRequest,$user->available_amount);
-                }
-
+                
+                DB::table('error_log')->insert(['response' => $request]);
                 $pay = Helper::payouts($request->business,$request->sourceCurrency,$request->destinationCurrency,$request->amount,$request->description,$custReference,$request->beneficiary['firstName'],$request->beneficiary['type'],$request->beneficiary['accountHolderName'],$request->beneficiary['accountNumber'],$request->beneficiary['bank_code'],$request->paymentDestination);
+                DB::table('error_log')->insert(['response' => $pay]);
 
-                if($request->beneficiary['about'] == "Cash Out" || $request->beneficiary['about'] == "Pay Out")
-                {
-                    $mailData = EmailTemplate::getMailByMailCategory(strtolower('Sent receipt'));
-                    if(isset($mailData)) {
-        
-                        $arr1 = array('{name}','{amount}','{r_name}', '{t_id}','{transaction_date}','{transaction_about}','{dataplan}','{accountNumber}','{bankname}');
-        
-                        $arr2 = array($loginName ??'',$amount ??'',$firstName ?? $request->beneficiary['accountHolderName'], $tid ??'-',$trans->created_at->format('d F Y'),$request->about ??'',$request->dataplan,$request->beneficiary['accountNumber'],$request->beneficiary['firstName']);
-        
-                        $msg = $mailData->email_content;
-                        $msg = str_replace($arr1, $arr2, $msg);
-                        $email_content = $mailData->email_content;
-                        $email_content = str_replace($arr1, $arr2, $email_content);
-                    
-                            $config = [
-                            'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
-                            'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
-                            'subject' => $mailData->email_subject, 
-                            'message' => $email_content,
-                        ];
-                        
-                        try {
-                            Mail::to($user->email)->send(new NewSignUp($config));
-                        } catch (\Throwable $th) {
-                            throw $th;
-                        } 
+                $pay_details = json_decode($pay, 1);
+                // return $pay_details['success'];
+                // $tid = Transaction::where('id',$trans->id)->pluck('t_id')->first();
+                if(isset($pay_details) && $pay_details['success']) {
+                    $tids = Transaction::where('id',$trans->id)->first();
+                    $users = VirtualAccounts::where('accountNumber',$request->beneficiary['accountNumber'])->first(); 
+
+                    if(!empty($users))
+                    {
+                        $dataArray  = json_decode($users['accountInformation'], true);
+                        $bankName = $dataArray['bankName'];
+                        $dataArray  = json_decode($users['KYCInformation'], true);
+                        $firstName = $dataArray['firstName'];
                     }
+                    $fname = $trans->user ? $trans->user->fname : "";
+                    $lname = $trans->user ? $trans->user->lname : "";
+                    $loginName =  $fname ." ". $lname;
+
+                    // if(isset($pay) && isset($pay['success']) && $pay['success'] == true){
+                    if($request->beneficiary['about'] == "Cash Out" || $request->beneficiary['about'] == "Pay Out" || $request->beneficiary['about'] == "Send Cash")
+                    {
+                        $mailData = EmailTemplate::getMailByMailCategory(strtolower('Sent receipt'));
+                        if(isset($mailData)) {
+            
+                            $arr1 = array('{name}','{amount}','{r_name}', '{t_id}','{transaction_date}','{transaction_about}','{dataplan}','{accountNumber}','{bankname}');
+            
+                            $arr2 = array($loginName ??'',$amount ??'',$firstName ?? $request->beneficiary['accountHolderName'], $tids->t_id ??'-',$trans->created_at->format('d F Y'),$request->about ??'',$request->dataplan,$request->beneficiary['accountNumber'],$request->beneficiary['firstName']);
+            
+                            $msg = $mailData->email_content;
+                            $msg = str_replace($arr1, $arr2, $msg);
+                            $email_content = $mailData->email_content;
+                            $email_content = str_replace($arr1, $arr2, $email_content);
+                        
+                                $config = [
+                                'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
+                                'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
+                                'subject' => $mailData->email_subject, 
+                                'message' => $email_content,
+                            ];
+                            
+                            try {
+                                Mail::to($user->email)->send(new NewSignUp($config));
+                            } catch (\Throwable $th) {
+                                throw $th;
+                            } 
+                        }
+                    }
+                    // }
                 }
-               
                 return json_decode($pay);
                 
             } elseif($request->key == 'createAcc'){

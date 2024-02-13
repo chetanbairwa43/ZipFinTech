@@ -101,12 +101,6 @@ class WebhookController extends Controller
                 'type' => $data['event'],
                 'trans_response' => json_encode($data)
             ]);
-
-            // $arr1 = array('{type}');
-            // $arr2 = array($data['event']);
-            // $msg = str_replace($arr1, $arr2, trans('notifications.CHARGE_WEBHOOK'));
-    
-            // Helper::fireBasePushNotification($users->id, 'Payment', $msg);
     
             $trans = Transaction::create([
                 'user_id'   => $users->id,
@@ -120,6 +114,47 @@ class WebhookController extends Controller
 
             $users->wallet_balance += $trans->amount;
             $users->save();
+
+            $setting = Setting::getAllSettingData();
+            $cashin_fee = $setting['cashin_fee'];
+            $user->available_amount - $cashin_fee;
+
+            $dataArray  = json_decode($virtual['accountInformation'], true);
+            $bankName = $dataArray['bankName'];
+            $dataArray  = json_decode($virtual['KYCInformation'], true);
+            $firstName = $dataArray['firstName'];
+
+            $mailData = EmailTemplate::getMailByMailCategory(strtolower('Request Money'));
+                if(isset($mailData)) {
+    
+                    $arr1 = array('{requested_name}','{amount}','{date}','{senderName}','{senderAccNumber}','{senderBankName}');
+    
+                    $arr2 = array($users->fname,$trans->amount,$trans->created_at,$firstName,$virtual->accountNumber,$bankName);
+    
+                    $msg = $mailData->email_content;
+                    $msg = str_replace($arr1, $arr2, $msg);
+                    $email_content = $mailData->email_content;
+                    $email_content = str_replace($arr1, $arr2, $email_content);
+                
+                         $config = [
+                        'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
+                        'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
+                        'subject' => $mailData->email_subject, 
+                        'message' => $email_content,
+                    ];
+                    
+                    try {
+                        Mail::to($user->email)->send(new NewSignUp($config));
+                    } catch (\Throwable $th) {
+                        throw $th;
+                    } 
+                }
+
+            // $arr1 = array('{type}');
+            // $arr2 = array($data['event']);
+            // $msg = str_replace($arr1, $arr2, trans('notifications.CHARGE_WEBHOOK'));
+    
+            // Helper::fireBasePushNotification($users->id, 'Payment', $msg);
         }
 
         if($data['event'] == 'collection.failed'){
@@ -149,6 +184,48 @@ class WebhookController extends Controller
                 'webhook_type' => 'fincra',
                 'trans_response' => json_encode($data)
             ]);
+
+            // $tids = Transaction::where('id',$trans->id)->first();
+            $users = VirtualAccounts::where('user_id',$user->id)->first(); 
+
+            if(!empty($users))
+            {
+                $dataArray  = json_decode($users['accountInformation'], true);
+                $bankName = $dataArray['bankName'];
+                $accounHolderName = $dataArray['accountName'];
+                $accoutNumber = $dataArray['accountNumber'];
+                $dataArray  = json_decode($users['KYCInformation'], true);
+                $firstName = $dataArray['firstName'];
+            }
+            $fname = $user->fname;
+            $lname = $user->lname;
+            $loginName =  $fname ." ". $lname;
+
+            $mailData = EmailTemplate::getMailByMailCategory(strtolower('Sent receipt'));
+            if(isset($mailData)) {
+
+                $arr1 = array('{name}','{amount}','{r_name}', '{t_id}','{transaction_date}','{transaction_about}','{dataplan}','{accountNumber}','{bankname}');
+
+                $arr2 = array($loginName ??'',$data['amountReceived'] ??'',$accounHolderName, $userData->t_id ??'-',$userData->created_at->format('d F Y'),$userData->transaction_about ??'',$userData->dataplan,$accoutNumber,$firstName);
+
+                $msg = $mailData->email_content;
+                $msg = str_replace($arr1, $arr2, $msg);
+                $email_content = $mailData->email_content;
+                $email_content = str_replace($arr1, $arr2, $email_content);
+            
+                    $config = [
+                    'from_email' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_ADDRESS'),
+                    'name' => isset($mailData->from_email) ? $mailData->from_email : env('MAIL_FROM_NAME'),
+                    'subject' => $mailData->email_subject, 
+                    'message' => $email_content,
+                ];
+                
+                try {
+                    Mail::to($user->email)->send(new NewSignUp($config));
+                } catch (\Throwable $th) {
+                    throw $th;
+                } 
+            }
 
             $arr1 = array('{type}');
             $arr2 = array($data['event']);
