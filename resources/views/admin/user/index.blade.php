@@ -117,8 +117,8 @@
                                     @foreach($data as $key => $value)
                                         <tr data-entry-id="{{ $value->id }}">
                                             <td>{{ $i++ ?? ''}}</td>
-                                            <td>{{ $value->fname ?? '-' }}</td>
-                                            <td>{{ $value->lname ?? '-' }}</td>
+                                            <td>{{ ucfirst($value->fname) ?? '-' }}</td>
+                                            <td>{{ ucfirst($value->lname) ?? '-' }}</td>
                                             <td>{{ $value->email ?? '-' }}</td>
                                             <td>{{ $value->phone ?? '-' }}</td>
                                             {{-- <td>{{ number_format((float)$value->wallet_balance, 2, '.', '') }}</td> --}}

@@ -18,6 +18,7 @@ use App\Models\EmailTemplate;
 use App\Models\VirtualAccounts;
 use App\Models\Setting;
 use App\Models\CardHolderDetails;
+use App\Models\BankLoan;
 use App\Models\UserMeta;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\NewSignUp;
@@ -357,6 +358,7 @@ class UserDetailsController extends Controller
             'destinationAddress'    =>  'required|numeric',
             'firstName'             =>  'required',
             'bank_name'            =>  'required',
+            'bank_code'            =>  'required',
         ];
 
 
@@ -372,6 +374,7 @@ class UserDetailsController extends Controller
                 'destinationAddress'    => $request->destinationAddress,
                 'firstName'    => $request->firstName,
                 'bank_name'    => $request->bank_name,
+                'bank_code'    => $request->bank_code,
             ]);
 
             return ResponseBuilder::successMessage('Bank details save successfully', $this->success);
@@ -393,6 +396,7 @@ class UserDetailsController extends Controller
             $data = UserBank::where('user_id',$user->id)->latest()->get()
             ->map(function($value){
                 return [
+                    'bank_code'     => $value->bank_code,
                     'bank_name'     => $value->bank_name,
                     'destinationAddress'     => $value->destinationAddress,
                     'firstName'     => $value->firstName,
@@ -565,8 +569,24 @@ class UserDetailsController extends Controller
                 $data['transaction_pin'] = false ;
                 $data['enable_fingerprints'] =  false ;
             }
+
+            $userLoan = BankLoan::where('user_id',$user->id)->first();
+            if(!empty($userLoan))
+            {
+                $loan_apply = true;
+            }else{
+                $loan_apply = false;
+            }
+
+            $userCard = UserCard::where('user_id',$user->id)->first();
+            if(!empty($userCard))
+            {
+                $user_card = true;
+            }else{
+                $user_card = false;
+            }
             
-            return ResponseBuilder::successMessage('Current balance', $this->success,['current_balance'=> $user->available_amount,'fee'=>$fees,'charges' => $pay,'setting' => $data]);
+            return ResponseBuilder::successMessage('Current balance', $this->success,['current_balance'=> $user->available_amount,'fee'=>$fees,'charges' => $pay,'setting' => $data,'loan_applied' => $loan_apply,'user_card' => $user_card]);
         } catch (\Throwable $th) {
             //throw $th;
             return ResponseBuilder::error($th -> getMessage(), $this -> badRequest);

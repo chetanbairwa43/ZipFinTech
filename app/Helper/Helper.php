@@ -402,7 +402,7 @@ class Helper
         $curl = curl_init();
 
         $postData = array(
-            "amount" => $amount,
+            "amount" => (int)$amount,
             "currency" => $currency,
             "customer" => array(
                 "name" => $name,
@@ -437,8 +437,8 @@ class Helper
         CURLOPT_POSTFIELDS => $jsonData,
         CURLOPT_HTTPHEADER => array(
             'accept: application/json',
-            // 'x-pub-key: pk_NjQ1Zjk0MDRiYzgxODQ3YzQwZTQ0OGEwOjoxOTg1OTI=',
-            'x-pub-key: pk_test_NjQ1MjliZDJiZmRmMjhlN2MxOGFhOWRhOjoxMjc5NDc=',
+            'x-pub-key: pk_NjQ1Zjk0MDRiYzgxODQ3YzQwZTQ0OGEwOjoxOTg1OTI=',
+            // 'x-pub-key: pk_test_NjQ1MjliZDJiZmRmMjhlN2MxOGFhOWRhOjoxMjc5NDc=',
             'x-business-id: '.env('BUSINESS_ID'),
             'api-key: '.env("LIVE_KEY"),
             'content-type: application/json'
