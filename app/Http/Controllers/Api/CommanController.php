@@ -17,6 +17,7 @@ use Auth;
 use App\Models\VirtualAccounts;
 use App\Models\User;
 use App\Models\UserMeta;
+use App\Models\Beneficiary;
 use App\Models\UserAddress;
 use App\Models\WebhookDetails;
 use App\Models\Faq;
@@ -25,6 +26,7 @@ use App\Models\SupportCategories;
 use App\Models\UserCard;
 use App\Models\CardHolderDetails;
 use App\Models\UserCardInfo;
+use App\Models\UserBank;
 use Illuminate\Support\Facades\Hash;
 use App\Mail\NewSignUp;
 use DB;
@@ -960,6 +962,9 @@ class CommanController extends Controller
             case "createCard":
 
                 $user = User::where('id',Auth::user()->id)->first();
+                // if($user->available_amount <= $request->amount){
+                //     return ResponseBuilder::error('You Do not have enough balance to make this payment', $this->badRequest,$user->available_amount);
+                // }
                 $fee = Helper::bridgeCardCalculation();
                 $cardHolder = CardHolderDetails::where('user_id', $user->id)->where('status', 'verified')->orderBy('created_at','desc')->first();
                 // $cardHolder = CardHolderDetails::where('cardholder_id', $request->cardholder_id)->where('status', 'verified')->first();
@@ -1031,6 +1036,14 @@ class CommanController extends Controller
                         ];
                     }
                     $request['cardholder_id'] = $cardHolder->cardholder_id;
+
+                    $setting = Setting::getAllSettingData();
+                    $bridgeCard_fee = $setting['cardCreation_fee'];
+                    $cardCreation_fee = $bridgeCard_fee * $fee;
+
+                    if($user->available_amount <= $cardCreation_fee){
+                        return ResponseBuilder::error('You Do not have enough balance to make this payment', $this->badRequest,$user->available_amount);
+                    }
     
                     $response = Helper::bridgeCard('cards/create_card', 'POST', $request, $request->key);
                     if (isset($response['status']) && $response['status'] == 'success') {
@@ -1044,9 +1057,7 @@ class CommanController extends Controller
                             'cardholder_id' => $cardHolder->cardholder_id,
                             'resposnse' => json_encode($response)
                         ]);
-                        $setting = Setting::getAllSettingData();
-                        $bridgeCard_fee = $setting['cardCreation_fee'];
-                        $cardCreation_fee = $bridgeCard_fee * $fee;
+                        
 
                         $cardFee = Transaction::create([
                             'user_id' => Auth::user()->id,
@@ -1204,5 +1215,65 @@ class CommanController extends Controller
             return ResponseBuilder::error(trans('global.SOMETHING_WENT'),$this->badRequest);
         }
 
+    }
+
+    public function deleteBeneficiary(Request $request){
+        if(!Auth::guard('api')->check())
+        return ResponseBuilder::error(__("User not found"), $this->unauthorized);
+        $user = Auth::user();
+        try{
+            $validSet = [
+                'beneficiary_id' => 'required',
+                'accountNumber' => 'required',
+            ];
+
+            $isInValid = $this->isValidPayload($request, $validSet);
+            if($isInValid){
+                return ResponseBuilder::error($isInValid, $this->badRequest);
+            }
+
+            $beneficiary = Beneficiary::where('id',$request->beneficiary_id)->where('destination_address',$request->accountNumber)->where('unique_id',$user->unique_id)->first();
+            if($beneficiary){
+                $beneficiary->delete();
+                return ResponseBuilder::successMessage('Beneficiary Deleted Successfully',$this->success);
+            }
+            return ResponseBuilder::error(trans('Invalid Beneficiary Id'),$this->badRequest);
+        } catch(\Exception $e){
+            return $e->getMessage();
+        }
+    }
+
+
+    public function deleteBankAccount(Request $request){
+        if(!Auth::guard('api')->check())
+        return ResponseBuilder::error(__("User not found"), $this->unauthorized);
+        $user = Auth::user();
+        try{
+            $validSet = [
+                'bank_id' => 'required',
+                'accountNumber' => 'required',
+            ];
+
+            $isInValid = $this->isValidPayload($request, $validSet);
+            if($isInValid){
+                return ResponseBuilder::error($isInValid, $this->badRequest);
+            }
+
+            $userBank = UserBank::where('id',$request->bank_id)->where('destinationAddress',$request->accountNumber)->where('user_id',$user->id)->first();
+            if($userBank){
+                $userBank->delete();
+                return ResponseBuilder::successMessage('Bank Account Deleted Successfully',$this->success);
+            }
+            return ResponseBuilder::error(trans('Invalid Bank Account Id'),$this->badRequest);
+        } catch(\Exception $e){
+            return $e->getMessage();
+        }
+    }
+
+    public function insertErrorLog(Request $request){
+        // $result = json_encode($request->response);
+        DB::table('error_log')->insert(['response' => $request->response,'api_type' => $request->type]);
+
+        return ResponseBuilder::successMessage('Response Inserted Successfully',$this->success);
     }
 }

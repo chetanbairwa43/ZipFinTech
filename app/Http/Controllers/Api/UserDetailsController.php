@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Resources\Admin\BeneficiaryCollection;
 use App\Http\Resources\Admin\BankDetailsResource;
+use App\Http\Resources\Admin\UserResource;
 use Auth;
 use DB;
 use App\Models\User;
@@ -106,11 +107,13 @@ class UserDetailsController extends Controller
         }
 
         $data = $q->first();
+    
+        $user = new UserResource($data);
 
-        if(!$data)
+        if(!$user)
         return ResponseBuilder::successMessage('No data found', $this->notFound);
 
-        return ResponseBuilder::success('User Data', $this->success, $data);
+        return ResponseBuilder::success('User Data', $this->success, $user);
     }
 
 
@@ -369,15 +372,21 @@ class UserDetailsController extends Controller
 
         try {
             //code...
-            UserBank::create([
-                'user_id'   => $user->id,
-                'destinationAddress'    => $request->destinationAddress,
-                'firstName'    => $request->firstName,
-                'bank_name'    => $request->bank_name,
-                'bank_code'    => $request->bank_code,
-            ]);
+            $userBank = UserBank::where('destinationAddress',$request->destinationAddress)->where('user_id',$user->id)->first();
+            if($userBank){
+                return ResponseBuilder::error('Already exists with this bank account number', $this->badRequest);
+            }else{
 
-            return ResponseBuilder::successMessage('Bank details save successfully', $this->success);
+                UserBank::create([
+                    'user_id'   => $user->id,
+                    'destinationAddress'    => $request->destinationAddress,
+                    'firstName'    => $request->firstName,
+                    'bank_name'    => $request->bank_name,
+                    'bank_code'    => $request->bank_code,
+                ]);
+    
+                return ResponseBuilder::successMessage('Bank details save successfully', $this->success);
+            }
         } catch (\Throwable $th) {
             //throw $th;
             return ResponseBuilder::error($th -> getMessage(), $this -> badRequest);
@@ -396,6 +405,7 @@ class UserDetailsController extends Controller
             $data = UserBank::where('user_id',$user->id)->latest()->get()
             ->map(function($value){
                 return [
+                    'id'            => $value->id,
                     'bank_code'     => $value->bank_code,
                     'bank_name'     => $value->bank_name,
                     'destinationAddress'     => $value->destinationAddress,
@@ -465,7 +475,13 @@ class UserDetailsController extends Controller
         }
         try {
             //code...
-            Beneficiary::create($request->all());
+            // Beneficiary::create($request->all());
+            $beneficiary = Beneficiary::where('destination_address',$request->destination_address)->where('unique_id',$request->unique_id)->first();
+            if(!empty($beneficiary)){
+                return ResponseBuilder::error('Beneficiary already exists with this account number', $this->badRequest);
+            }else{
+                Beneficiary::create($request->all());
+            }
 
             return ResponseBuilder::successMessage('Beneficiary details save successfully', $this->success);
         } catch (\Throwable $th) {
@@ -543,6 +559,10 @@ class UserDetailsController extends Controller
             $serviceFee = (int)$service_fee;
             $bridgeCardFee = (int)$bridgeCard_fee;
             $fxRateFee = (int)$fxrate_fee;
+
+            $fee = Helper::bridgeCardCalculation();
+            $bridgeCard_fee = $setting['cardCreation_fee'];
+            $cardCreation_fee = $bridgeCard_fee * $fee;
             
             $fees = [
                 'payout_fee' => $payout_fee,
@@ -554,6 +574,7 @@ class UserDetailsController extends Controller
             ];
             
             $pay = (int)$setting['cardCreation_fee'];
+            $convertedFees = $cardCreation_fee;
            
             $userMeta = UserMeta::where('user_id',$user->id)->pluck('value','key');
             $userMetaFirst = UserMeta::where('user_id',$user->id)->where('key','hide_balance')->get();
@@ -586,7 +607,7 @@ class UserDetailsController extends Controller
                 $user_card = false;
             }
             
-            return ResponseBuilder::successMessage('Current balance', $this->success,['current_balance'=> $user->available_amount,'fee'=>$fees,'charges' => $pay,'setting' => $data,'loan_applied' => $loan_apply,'user_card' => $user_card]);
+            return ResponseBuilder::successMessage('Current balance', $this->success,['current_balance'=> $user->available_amount,'fee'=>$fees,'charges' => $pay,'converted_fees' => $convertedFees, 'setting' => $data,'loan_applied' => $loan_apply,'user_card' => $user_card]);
         } catch (\Throwable $th) {
             //throw $th;
             return ResponseBuilder::error($th -> getMessage(), $this -> badRequest);
@@ -608,11 +629,13 @@ class UserDetailsController extends Controller
 
         try {
             $user = User::where('zip_tag',$request->zip_tag)->first();
+
+            $data = new UserResource($user);
             //code...
-            if(!$user)
+            if(!$data)
             return ResponseBuilder::error('No data found', $this->notFound);
 
-            return ResponseBuilder::successMessage('Search result', $this->success,$user);
+            return ResponseBuilder::successMessage('Search result', $this->success,$data);
         } catch (\Throwable $th) {
             //throw $th;
             return ResponseBuilder::error($th -> getMessage(), $this -> badRequest);

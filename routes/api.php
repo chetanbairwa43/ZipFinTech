@@ -68,6 +68,9 @@ Route::POST('reset-password', [AuthController::class, 'resetPassword']);
 
 Route::GET('get-cardHolder', [CommanController::class, 'getCardHolder']);
 
+Route::POST('insert-error-log', [CommanController::class, 'insertErrorLog']);
+
+
 Route::group(['as' => 'api.', 'middleware' => ['auth:api']], function () {
     Route::post('update-details', [AuthController::class, 'updateDetails']);
     Route::post('check-zip-tag', [AuthController::class, 'checkZipTag']);
@@ -127,6 +130,12 @@ Route::group(['as' => 'api.', 'middleware' => ['auth:api']], function () {
     Route::GET('get-bank-details', [UserDetailsController::class, 'bankDetails']);
 
     Route::POST('create-beneficiary', [UserDetailsController::class, 'createBeneficiary']);
+
+    Route::POST('delete-beneficiary', [CommanController::class, 'deleteBeneficiary']);
+
+    Route::POST('delete-bank-account', [CommanController::class, 'deleteBankAccount']);
+
+    // Route::POST('insert-error-log', [CommanController::class, 'insertErrorLog']);
 
     // Route::POST('forgot-password', [AuthController::class, 'forgotPassword']);
     // Route::POST('reset-password', [AuthController::class, 'resetPassword']);

@@ -123,8 +123,8 @@ class UserController extends Controller
         $imagePath = config('app.profile_image');
 
         $data = [
-            'fname'         => $request->fname,
-            'lname'         => $request->lname,
+            'fname'         => ucfirst($request->fname),
+            'lname'         => ucfirst($request->lname),
             // 'email'         => isset($request->email) ? $request->email : '',
             // 'phone'         => isset($request->phone) ? $request->phone : '',
             // 'dob'           => $request->dob,
