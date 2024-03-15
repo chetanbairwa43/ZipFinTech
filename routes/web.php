@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\DeleteUserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,6 +19,9 @@ use Illuminate\Support\Facades\Route;
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+Route::post('/delete-user', [App\Http\Controllers\Auth\DeleteUserController::class, 'deleteUser'])->name('delete.user');
+Route::get('/user-delete', [App\Http\Controllers\Auth\DeleteUserController::class, 'userDelete'])->name('user-delete');
 
 // Route::resource('users', UsersController::class);
 

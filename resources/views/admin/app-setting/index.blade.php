@@ -86,8 +86,8 @@
                             <hr>
                             <h5 class="fw-bolder">App Settings</h5>
                             <div class="row">
-                                <div class="form-group col-md-6">
-                                    <label for="name" class="mt-2"> App Version <span class="text-danger">*</span></label>
+                                <div class="form-group col-md-4">
+                                    <label for="name" class="mt-2"> App Version (Android)<span class="text-danger">*</span></label>
                                     <input type="text" name="app_version" class="form-control @error('app_version') is-invalid @enderror" placeholder="App Version" value="{{ old('app_version', isset($data) && isset($data['app_version']) ? $data['app_version'] : '' ) }}" required>
                                     @error('app_version')
                                         <span class="invalid-feedback form-invalid fw-bold" role="alert">
@@ -95,8 +95,17 @@
                                         </span>
                                     @enderror
                                 </div>
+                                <div class="form-group col-md-4">
+                                    <label for="name" class="mt-2"> App Version (IOS)<span class="text-danger">*</span></label>
+                                    <input type="text" name="app_version_ios" class="form-control @error('app_version_ios') is-invalid @enderror" placeholder="App Version" value="{{ old('app_version_ios', isset($data) && isset($data['app_version_ios']) ? $data['app_version_ios'] : '' ) }}" required>
+                                    @error('app_version_ios')
+                                        <span class="invalid-feedback form-invalid fw-bold" role="alert">
+                                            {{ $message }}
+                                        </span>
+                                    @enderror
+                                </div>
 
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-4">
                                     <label class="mt-2"> Maintenance Mode <span class="text-danger">*</span></label>
                                     <select name="maintenance_mode" class="form-control is_required form-select @error('maintenance_mode') is-invalid @enderror" required>
                                         <option value="false" {{ old('maintenance_mode') ? ((old('maintenance_mode') == 'false') ? 'selected' : '' ) : (isset($data) && isset($data['maintenance_mode']) ? ($data['maintenance_mode'] == 'false' ? 'selected' : '' ) : '' ) }} >False</option>

@@ -610,6 +610,7 @@ class UserDetailsController extends Controller
             return ResponseBuilder::successMessage('Current balance', $this->success,['current_balance'=> $user->available_amount,'fee'=>$fees,'charges' => $pay,'converted_fees' => $convertedFees, 'setting' => $data,'loan_applied' => $loan_apply,'user_card' => $user_card]);
         } catch (\Throwable $th) {
             //throw $th;
+            return ResponseBuilder::error($th->getMessage().' at line '.$th->getLine() .' at file '.$th->getFile(),$this->badRequest);
             return ResponseBuilder::error($th -> getMessage(), $this -> badRequest);
         }
     }
@@ -840,6 +841,66 @@ class UserDetailsController extends Controller
             return ResponseBuilder::error($th->getMessage(), $this->badRequest);
         }
     }
+
+    public function appVersion(Request $request)
+    {
+        $valid = [
+            'version_code' => 'required'
+        ];
+
+        $isInvalid = $this->isValidPayload($request, $valid);
+        if ($isInvalid) {
+            return ResponseBuilder::error($isInvalid, $this->badRequest);
+        }
+
+        try {
+            $setting = Setting::where('key', 'app_version')->update(['value' => $request->version_code]);
+            return ResponseBuilder::successMessage('Version Updated', $this->success);
+        } catch (\Throwable $e) {
+            return ResponseBuilder::error($e->getMessage() . ' at line ' . $e->getLine() . ' at file ' . $e->getFile(), $this->badRequest);
+        }
+    }
+
+    public function getVersion(Request $request)
+    {
+        $valid = [
+            'version_code' => 'required',
+            'type' => 'required|in:ios,android'
+        ];
+
+        $isInvalid = $this->isValidPayload($request, $valid);
+        if ($isInvalid) {
+            return ResponseBuilder::error($isInvalid, $this->badRequest);
+        }
+
+        try {
+            if($request->type == 'ios'){
+                $setting = Setting::where('key', 'app_version_ios')->first();
+                $link = 'https://apps.apple.com/in/app/recs/id6473147636';
+            }else{
+                $setting = Setting::where('key', 'app_version')->first();
+                $link = 'https://apps.apple.com/in/app/recs/id6473147636';
+            }
+            
+            if (isset($setting) && $setting->value == $request->version_code) {
+                return ResponseBuilder::successMessage('Success', $this->success,['link' => $link, 'is_updated' => true]);
+            }else{
+                return ResponseBuilder::successMessage('Success', $this->success,['link' => $link, 'is_updated' => false]);
+            }
+        } catch (\Throwable $e) {
+            // return ResponseBuilder::error($e->getMessage() . ' at line ' . $e->getLine() . ' at file ' . $e->getFile(), $this->badRequest);
+            return ResponseBuilder::error(trans('global.SOMETHING_WENT'),$this->badRequest);
+        }
+    }
+
+    public function fxRate()
+    {
+        $fxrate = Helper::currencyRate();
+        return $result = json_decode($fxrate,true);
+        // return ResponseBuilder::successMessage('Success', $this->success,['fx-rate' => $result]);
+    }
+
+
 }
 
 

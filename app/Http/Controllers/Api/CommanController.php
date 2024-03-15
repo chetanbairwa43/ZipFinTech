@@ -1176,6 +1176,8 @@ class CommanController extends Controller
 
             case "cardBalance":
                 $card_id = $request->card_id;
+                $card = UserCardInfo::where('card_id',$card_id)->first();
+                $cardUser = UserCard::where('card_id',$card_id)->first();
                 return $response = Helper::bridgeCard('cards/get_card_balance?card_id='.$card_id, 'GET', '', $request->key);
                 break;
 
@@ -1276,4 +1278,44 @@ class CommanController extends Controller
 
         return ResponseBuilder::successMessage('Response Inserted Successfully',$this->success);
     }
+
+    public function popScore(Request $request){
+        DB::table('user_pop_score')->insert(['user_id' => Auth::user()->id, 'pop_score' => $request->popScore]);
+
+        return ResponseBuilder::successMessage('Pop Score Insereted Successfully', $this->success);
+    }
+    
+    public function sendMail(Request $request)
+    {
+        try {
+           
+            $mailData = EmailTemplate::getMailByMailCategory(strtolower('Card Creation Failed'));
+    
+            if(isset($mailData)) {
+                $msg = $mailData->email_content;
+                $email_content = $msg;
+    
+                $config = [
+                    'from_email' => $mailData->from_email ?? env('MAIL_FROM_ADDRESS'),
+                    'name' => $mailData->from_name ?? env('MAIL_FROM_NAME'),
+                    'subject' => $mailData->email_subject, 
+                    'message' => $email_content,
+                ];
+                // return $config;
+                try {
+                    Mail::to($request->email)->send(new NewSignUp($config));
+                    return ResponseBuilder::successMessage('Email sent successfully',$this->success);
+                } catch (\Throwable $th) {
+                    // Log error message
+                    return ResponseBuilder::error('Email sending failed: ' . $th->getMessage(),$this->badRequest);
+                } 
+            } else {
+                return ResponseBuilder::error('Email template not found');
+            }
+        } catch (\Exception $e) {
+            // Log error message
+            return ResponseBuilder::error('Email sending failed: ' . $e->getMessage());
+        }
+    }
+    
 }

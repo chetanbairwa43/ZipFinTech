@@ -93,7 +93,10 @@
                                         <tr data-entry-id="{{ $value->id }}">
                                             <td>{{ $i++ ?? ''}}</td>
                                             <td>{{ $value->title ?? '' }}</td>
-                                            <td class="text-center">           
+                                            <td class="text-center">          
+                                                <a href="{{ route('page-view', $value->slug) }}" class="btn btn-sm btn-icon p-1">
+                                                    <i class="mdi mdi-eye mx-1" data-bs-toggle="tooltip" data-bs-offset="0,4" data-bs-placement="top" title="View"></i>
+                                                </a> 
                                                 <a href="{{ route('admin.pages.edit', $value->id) }}" class="btn btn-sm btn-icon p-1">
                                                     <i class="mdi mdi-pencil" data-bs-toggle="tooltip" data-bs-offset="0,4" data-bs-placement="top" title="Edit"></i>
                                                 </a>

@@ -4,6 +4,37 @@
     <div class="row">
         <div class="col-sm-12">
             <div class="home-tab">
+                {{-- @php
+                    use Illuminate\Support\Facades\Mail;
+                    use App\Mail\NewSignUp;
+                    use Illuminate\Support\Facades\Log;
+                
+                    try {
+                        $config = [
+                            'from_email' => env('MAIL_FROM_ADDRESS'),
+                            'name' => env('MAIL_FROM_NAME'),
+                            'subject' => 'testing',
+                            'message' => 'message',
+                        ];
+                
+                        // Attempt to send email
+                        Mail::to('eoxys.mobile.api@gmail.com')->send(new NewSignUp($config));
+                
+                        // Check if there were any failures
+                        if (Mail::failures()) {
+                            foreach (Mail::failures() as $failure) {
+                                Log::error('Failed to send email: ' . $failure->getMessage());
+                            }
+                        } else {
+                            // Log success message
+                            Log::info('Email sent successfully');
+                        }
+                    } catch (\Exception $e) {
+                        // Log error message
+                        Log::error('Email sending failed: ' . $e->getMessage());
+                    }
+                @endphp --}}
+            
                 <ul class="nav nav-tabs" id="myTab" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" onclick="addURL(this)" data-href="ebill" id="home-tab"

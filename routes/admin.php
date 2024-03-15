@@ -41,6 +41,8 @@ Route::resource('verify', TwoFactorController::class)->only(['index', 'store']);
 
 Route::get('/webhook', [WebhookController::class, 'handle']);
 Route::get('/web' ,[WebhookController::class, 'index']);
+
+Route::GET('pages/{slug}', [PageController::class,'viewPage'])->name('page-view');
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth','twofactor']], function () {
 
     Route::GET('/dashboard', [HomeController::class, 'dashboard'])->name('dashboard');

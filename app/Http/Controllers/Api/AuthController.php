@@ -894,6 +894,7 @@ class AuthController extends Controller
         try {
            
             $data = AfricaVerification::where('user_id',$request->user_id)->first();
+            $data->avatar = substr($data->avatar, 0, -5);
             return ResponseBuilder::successMessage(trans('global.profile_detail'), $this->success, $data); 
         } catch (\Exception $e) {
             return $e;

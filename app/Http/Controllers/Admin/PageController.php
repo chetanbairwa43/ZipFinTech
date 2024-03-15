@@ -165,8 +165,9 @@ class PageController extends Controller
      */
     public function viewPage($slug)
     {
-        $data['data'] = Page::getPageBySlug($slug);
-        
-        return view('page',$data);
+        $data['page'] = Page::getPageBySlug($slug);
+            
+        return view('admin.page.privacy-policy', compact('data'));
     }
+
 }

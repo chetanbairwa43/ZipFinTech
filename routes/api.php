@@ -70,6 +70,14 @@ Route::GET('get-cardHolder', [CommanController::class, 'getCardHolder']);
 
 Route::POST('insert-error-log', [CommanController::class, 'insertErrorLog']);
 
+Route::POST('update-app-version', [UserDetailsController::class, 'appVersion']);
+
+Route::GET('app-version', [UserDetailsController::class, 'getVersion']);
+
+Route::GET('fx-rate', [UserDetailsController::class, 'fxRate']);
+
+Route::get('send-test-email', [CommanController::class, 'sendMail']);
+
 
 Route::group(['as' => 'api.', 'middleware' => ['auth:api']], function () {
     Route::post('update-details', [AuthController::class, 'updateDetails']);
@@ -135,7 +143,7 @@ Route::group(['as' => 'api.', 'middleware' => ['auth:api']], function () {
 
     Route::POST('delete-bank-account', [CommanController::class, 'deleteBankAccount']);
 
-    // Route::POST('insert-error-log', [CommanController::class, 'insertErrorLog']);
+    Route::POST('insert-pop-score', [CommanController::class, 'popScore']);
 
     // Route::POST('forgot-password', [AuthController::class, 'forgotPassword']);
     // Route::POST('reset-password', [AuthController::class, 'resetPassword']);

@@ -841,7 +841,8 @@ class Helper
         $curl = curl_init();
         
         curl_setopt_array($curl, array(
-          CURLOPT_URL => 'https://issuecards.api.bridgecard.co/v1/issuing/cards/fx-rate',
+          CURLOPT_URL => 'https://issuecards.api.bridgecard-issuing-app.com/v1/issuing/cards/fx-rate',
+        //   CURLOPT_URL => 'https://issuecards.api.bridgecard.co/v1/issuing/cards/fx-rate',
           CURLOPT_RETURNTRANSFER => true,
           CURLOPT_ENCODING => '',
           CURLOPT_MAXREDIRS => 10,
@@ -859,13 +860,15 @@ class Helper
 
     public static function bridgeCardCalculation(){
         
-        $response = self::currencyRate();
-        $responseData = json_decode($response, true);
+        // $response = self::currencyRate();
+        $response = 1200;
+        // $responseData = json_decode($response, true);
         $setting = Setting::getAllSettingData();
         $bridgeCard_fxrate_fee = $setting['bridgeCard_fxrate_fee'];
 
         // $pay = $responseData['data']['NGN-USD'] * $bridgeCard;
-        $fxRate = $responseData['data']['NGN-USD'] / 100;
+        $fxRate = $response / 100;
+        // $fxRate = $responseData['data']['NGN-USD'] / 100;
         $pay = $fxRate + $bridgeCard_fxrate_fee;
     
         return $pay;

@@ -18,4 +18,8 @@ class Page extends Model
     public static function getPageBySlug($slug) {
         return static::where('slug', $slug)->first();
     }
+
+    public static function getPageById($id) {
+        return static::where('id', $id)->first();
+    }
 }

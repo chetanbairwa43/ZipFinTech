@@ -42,12 +42,14 @@ class AppSettingController extends Controller
         // return $request;
         $request->validate([
             'app_version' => 'required',
+            'app_version_ios' => 'required',
             'maintenance_mode' => 'required',
             'force_update' => 'required',
         ]);
 
         $data = [
             'app_version'      => $request->app_version,
+            'app_version_ios'      => $request->app_version_ios,
             'maintenance_mode' => $request->maintenance_mode,
             'force_update'     => $request->force_update,
             'business_id'      => $request->business_id,
