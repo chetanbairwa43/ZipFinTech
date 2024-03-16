@@ -1289,17 +1289,17 @@ class CommanController extends Controller
     {
         try {
            
-            // $mailData = EmailTemplate::getMailByMailCategory(strtolower('Card Creation Failed'));
+            $mailData = EmailTemplate::getMailByMailCategory(strtolower('Card Creation Failed'));
     
-            // if(isset($mailData)) {
-            //     $msg = $mailData->email_content;
-            //     $email_content = $msg;
+            if(isset($mailData)) {
+                $msg = $mailData->email_content;
+                $email_content = $msg;
     
                 $config = [
-                    'from_email' =>  env('MAIL_FROM_ADDRESS'),
-                    'name' =>  env('MAIL_FROM_NAME'),
-                    'subject' => 'hgfhfghgf', 
-                    'message' => 'bvnbvnv',
+                    'from_email' => $mailData->from_email ?? env('MAIL_FROM_ADDRESS'),
+                    'name' => $mailData->from_name ?? env('MAIL_FROM_NAME'),
+                    'subject' => $mailData->email_subject, 
+                    'message' => $email_content,
                 ];
                 // return $config;
                 try {
@@ -1309,9 +1309,9 @@ class CommanController extends Controller
                     // Log error message
                     return ResponseBuilder::error('Email sending failed: ' . $th->getMessage(),$this->badRequest);
                 } 
-            // } else {
-            //     return ResponseBuilder::error('Email template not found');
-            // }
+            } else {
+                return ResponseBuilder::error('Email template not found');
+            }
         } catch (\Exception $e) {
             // Log error message
             return ResponseBuilder::error('Email sending failed: ' . $e->getMessage());
